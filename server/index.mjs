@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { Store, digest, resolveFile, byteRange } from './core.mjs';
 import { discoverUsb, CameraCapture } from './cameras.mjs';
 import { modules } from './modules.mjs';
+import { televisions, tvRouteAllowed, tvFileAllowed } from './televisions.mjs';
 import { Downloads } from './downloads.mjs';
 import { administrative } from './admin-client.mjs';
 
@@ -77,6 +78,14 @@ const handler = async (req, res) => {
       const token = (req.headers.authorization || '').replace(/^Bearer /, '');
       const device = store.state.devices.find(d => !d.revoked && d.expires > Date.now() && d.tokenHash === digest(token));
       if (!device) return json(res, 401, { message: 'Appairez votre appareil pour accéder au serveur.' });
+      if (device.role === 'tv') {
+        if (!tvRouteAllowed(req.method,route)) return json(res,403,{message:'Cet accès est réservé aux vidéos autorisées.'});
+        if (route === '/api/v1/files/content') {
+          try { await tvFileAllowed(media,device,url.searchParams.get('path') || ''); }
+          catch { return json(res,403,{message:'Vidéo non autorisée.'}); }
+        }
+      }
+      if (await televisions({req,res,route,url,store,media,device,json,body,certificate})) return;
       if (req.method === 'POST' && route === '/api/v1/pairing/open') { if(device.role!=='admin')return json(res,403,{message:'Action réservée au propriétaire.'});code=crypto.randomInt(100000,1000000).toString();pairUntil=Date.now()+600000;return json(res,200,{code,expires:pairUntil}); }
       if (await modules({ req,res,route,url,store,media,device,json,body })) return;
       if (req.method === 'POST' && route === '/api/v1/cameras/discover') { try { return json(res, 200, await scan(true)); } catch (e) { return json(res, 503, { message: e.message }); } }
@@ -108,7 +117,7 @@ const handler = async (req, res) => {
         const disk = await fs.statfs(media); const cpus = os.cpus();
         return json(res, 200, { id: store.state.id, name: store.state.name, hostname: os.hostname(), version: '0.2.0', uptime: os.uptime(), cpuCount: cpus.length, load: os.loadavg()[0], memory: { total: os.totalmem(), free: os.freemem() }, storage: { total: disk.blocks * disk.bsize, free: disk.bavail * disk.bsize }, connection: req.remoteAccess?'remote':'local', secure:!!req.socket.encrypted||!!req.remoteAccess, remoteAvailable: !!store.state.remoteUrl });
       }
-      if (req.method === 'GET' && route === '/api/v1/devices/authorized') { if(device.role!=='admin')return json(res,403,{message:'Action réservée au propriétaire.'});return json(res, 200, store.state.devices.map(({ id, name, role, revoked, createdAt }) => ({ id, name, role, revoked, createdAt }))); }
+      if (req.method === 'GET' && route === '/api/v1/devices/authorized') { if(device.role!=='admin')return json(res,403,{message:'Action réservée au propriétaire.'});return json(res, 200, store.state.devices.map(({ id, name, role, revoked, createdAt, mediaRoots }) => ({ id, name, role, revoked, createdAt, mediaRoots }))); }
       if (req.method === 'DELETE' && route.startsWith('/api/v1/devices/authorized/')) { if(device.role!=='admin')return json(res,403,{message:'Action réservée au propriétaire.'});const target = store.state.devices.find(d => d.id === route.split('/').at(-1)); if (!target) return json(res, 404, { message: 'Appareil introuvable.' }); target.revoked = true; delete target.tokenHash; await store.save();try{await administrative({action:'wireguard-revoke',deviceId:target.id});}catch{console.error('Révocation du tunnel à vérifier pour l’appareil '+target.id);}return json(res, 200, { revoked: true }); }
       if (req.method === 'GET' && ['/api/v1/rooms', '/api/v1/scenes'].includes(route)) return json(res, 200, store.state[route.split('/').at(-1)]);
       if (req.method === 'GET' && route === '/api/v1/files') {

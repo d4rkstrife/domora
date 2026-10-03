@@ -2,13 +2,15 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id(
 android {
     namespace = "fr.mamaison.app"
     compileSdk = 35
-    defaultConfig { applicationId = "fr.mamaison.app"; minSdk = 29; targetSdk = 35; versionCode = 15; versionName = "0.6.2" }
+    defaultConfig { applicationId = "fr.mamaison.app"; minSdk = 29; targetSdk = 35; versionCode = 16; versionName = "0.7.0" }
     buildFeatures { compose = true; buildConfig = true }
+    sourceSets.getByName("main").java.srcDir("../common/src/main/java")
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17; isCoreLibraryDesugaringEnabled = true }
 
 }
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 dependencies {
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
     implementation(platform("org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.11.0"))
     implementation("com.google.android.gms:play-services-home:17.1.0")
     implementation("com.google.android.gms:play-services-home-types:17.1.0")

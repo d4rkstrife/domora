@@ -1,5 +1,6 @@
 data/
 .gradle/
+.kotlin/
 **/build/
 local.properties
 tools/
@@ -8,6 +9,7 @@ artifacts/
 docs/*
 !docs/INSTALLATION.md
 !docs/ANDROID.md
+!docs/TV.md
 AGENTS.md
 scripts/*.ps1
 !scripts/build-android.ps1

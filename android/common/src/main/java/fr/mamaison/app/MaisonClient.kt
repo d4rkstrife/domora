@@ -102,14 +102,27 @@ class MaisonClient(context: Context) {
             return text
         } finally { connection.disconnect() }
     }
-    suspend fun pair(code: String) {
-        secureLocal()
+    fun publicIdentity():String {
         if (!keys.containsAlias(alias)) {
             KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore").apply {
                 initialize(KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY).setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1")).setDigests(KeyProperties.DIGEST_SHA256).build())
             }.generateKeyPair()
         }
-        val pem = "-----BEGIN PUBLIC KEY-----\n" + Base64.encodeToString(keys.getCertificate(alias).publicKey.encoded, Base64.NO_WRAP) + "\n-----END PUBLIC KEY-----"
+        return "-----BEGIN PUBLIC KEY-----\n" + Base64.encodeToString(keys.getCertificate(alias).publicKey.encoded, Base64.NO_WRAP) + "\n-----END PUBLIC KEY-----"
+    }
+    suspend fun acceptTvApproval(data:JSONObject) {
+        require(data.getString("publicKey").replace(Regex("\\s"),"")==publicIdentity().replace(Regex("\\s"),"")){"Cette autorisation appartient à une autre télévision."}
+        val cert=CertificateFactory.getInstance("X.509").generateCertificate(ByteArrayInputStream(Base64.decode(data.getString("certificate"),Base64.DEFAULT))) as X509Certificate
+        cert.checkValidity();pin=fingerprint(cert);configurePin()
+        address=data.getString("localAddress")
+        require(address.startsWith("https://") && URL(address).userInfo==null){"Adresse du serveur invalide"}
+        wireguard.saveProfile(data.getJSONObject("profile"))
+        prefs.edit().putString("address",address).putString("device",data.getString("deviceId")).putString("serverId",data.getString("serverId")).putString("certificatePin",pin).apply()
+    }
+    suspend fun usePrivateTunnel(){wireguard.start();vpnActive=true;nextLocalProbe=Long.MAX_VALUE}
+    suspend fun pair(code: String) {
+        secureLocal()
+        val pem = publicIdentity()
         val result = JSONObject(request("pair", JSONObject().put("code", code).put("publicKey", pem).put("name", android.os.Build.MODEL)))
         prefs.edit().putString("address", address).putString("device", result.getString("deviceId")).putString("serverId",result.getString("serverId")).apply()
         authenticate()

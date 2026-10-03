@@ -53,6 +53,7 @@ import org.json.JSONArray
         when(page){
             "Plus" -> {
                 item{MenuCard("Maison","Votre maison, vos pièces et vos scènes",MaisonIcons.Home){open("Maison")}}
+                item{MenuCard("Téléviseurs","Autoriser Domora TV et ses dossiers vidéo",MaisonIcons.Videocam){navigate("Téléviseurs")}}
                 item{MenuCard("Utilisateurs","Téléphones autorisés et partage de l’accès",MaisonIcons.People){open("Utilisateurs")}}
                 item{MenuCard("Intégrations","Appareils compatibles et services disponibles",MaisonIcons.Link,Color(0xFF27CBE4)){open("Intégrations")}}
                 item{MenuCard("Réseau","Connexion Wi-Fi et accès en 5G",MaisonIcons.Network){open("Réseau")}}

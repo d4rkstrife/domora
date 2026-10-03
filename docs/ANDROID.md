@@ -10,6 +10,6 @@ Sur le poste Windows utilisé pour ce projet, placer JDK dans tools/jdk, Android
 ./scripts/build-android.ps1
 ```
 
-Ce script compile et archive sans écraser les APK historiques, avec version, build, date Europe/Paris et empreinte du contenu. Conserver le certificat de signature local pour mettre à jour les installations existantes.
+Ce script compile les modules téléphone et télévision et archive leurs APK sans écraser les APK historiques, avec version, build, date Europe/Paris et empreinte du contenu. Le préfixe téléphone reste `ma-maison` ; celui de la télévision est `domora-tv`. Les sources de connexion sécurisée et WireGuard sont partagées dans `android/common`. La télévision n’embarque pas le SDK Google Home. Conserver le certificat de signature local pour mettre à jour les installations existantes.
 
 Pour Google Home, créer son propre client OAuth Android, package fr.mamaison.app et SHA-1 de son certificat, écran de consentement et utilisateur de test. Documentation : https://developers.home.google.com/apis/android/oauth. Les comptes et jetons Google restent dans le SDK Android. Le Pi n'en reçoit aucun.

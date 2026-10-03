@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ <uses-permission android:name="android.permission.INTERNET" />
+ <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+ <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+ <uses-feature android:name="android.software.leanback" android:required="false" />
+ <application android:label="Domora TV" android:banner="@drawable/banner" android:icon="@drawable/banner" android:allowBackup="false" android:theme="@android:style/Theme.Material.NoActionBar">
+  <service android:name="com.wireguard.android.backend.GoBackend$VpnService" android:permission="android.permission.BIND_VPN_SERVICE" android:exported="false"><intent-filter><action android:name="android.net.VpnService" /></intent-filter></service>
+  <activity android:name=".MainActivity" android:exported="true" android:screenOrientation="landscape" android:configChanges="orientation|screenSize"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LEANBACK_LAUNCHER" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity>
+ </application>
+</manifest>

@@ -124,6 +124,7 @@ class MainActivity : ComponentActivity() {
                     if(!busy&&code.length!=6)Text("Saisissez les 6 chiffres du code pour activer le bouton de connexion.",style=MaterialTheme.typography.bodySmall)
                 } else when (tab) {
                     "Accueil" -> DashboardScreen(client,stats,{navigateSection(it)},{load()})
+                    "Téléviseurs" -> TelevisionsScreen(client)
                     "Seedbox" -> SeedboxScreen(stats){navigateSection(it)}
                     "Médias" -> LibraryScreen(client){playing=it}
                     "Fichiers" -> FilesScreen(client,folder,{folder=it},{playing=it})
