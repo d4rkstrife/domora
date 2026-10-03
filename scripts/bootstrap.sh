@@ -3,7 +3,7 @@ set -euo pipefail
 [[ $EUID == 0 ]] || { echo 'Exécuter avec sudo.' >&2; exit 1; }
 command -v apt-get >/dev/null || { echo 'Ubuntu ou Debian avec systemd requis.' >&2; exit 1; }
 command -v systemctl >/dev/null || { echo 'systemd requis.' >&2; exit 1; }
-REF=${DOMORA_REF:-v0.7.1}
+REF=${DOMORA_REF:-v0.7.2}
 [[ $REF =~ ^[a-zA-Z0-9._-]+$ ]] || { echo 'Version Domora invalide.' >&2; exit 1; }
 apt-get update
 apt-get install -y curl ca-certificates iproute2

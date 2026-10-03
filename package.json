@@ -1,1 +1,1 @@
-{"name":"domora","version":"0.7.1","private":true,"type":"module","scripts":{"start":"node server/index.mjs","test":"node --test server/test/*.test.mjs"},"engines":{"node":">=22"}}
+{"name":"domora","version":"0.7.2","private":true,"type":"module","scripts":{"start":"node server/index.mjs","test":"node --test server/test/*.test.mjs"},"engines":{"node":">=22"}}

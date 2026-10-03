@@ -18,7 +18,6 @@ scripts/deploy-candidate.sh
 scripts/check-router.py
 scripts/check-remote-gateway.mjs
 scripts/install-free-remote.sh
-scripts/repair-downloads.sh
 scripts/test-clean-ubuntu.sh
 scripts/verify-installed-services.mjs
 scripts/verify-media-seedbox.mjs

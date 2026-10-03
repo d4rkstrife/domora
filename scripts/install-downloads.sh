@@ -43,5 +43,6 @@ if [[ ! -e /var/lib/maison/transmission-package-existing ]]; then
   if [[ ${MAISON_TRANSMISSION_PREEXISTED:-0} == 0 ]]; then systemctl disable --now transmission-daemon || true; fi
 fi
 systemctl daemon-reload
+bash "$(dirname "$0")/repair-downloads.sh" --prepare
 systemctl enable --now maison-downloads
 systemctl restart maison-downloads
