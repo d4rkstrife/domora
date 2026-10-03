@@ -62,6 +62,7 @@ WantedBy=multi-user.target
 UNIT
 systemctl daemon-reload
 systemctl enable maison-wireguard
+bash "$SOURCE/scripts/repair-wireguard.sh" --prepare
 systemctl restart maison-wireguard
 systemctl restart maison-admin maison
 if command -v ufw >/dev/null && ufw status | grep -q '^Status: active'; then

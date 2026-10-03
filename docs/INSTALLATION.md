@@ -5,7 +5,7 @@
 Ubuntu Server 24.04 LTS 64 bits, systemd et accès Internet. Raspberry Pi 4 ARM64 ou machine x86_64. SSH n'est nécessaire que pour administrer à distance.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/d4rkstrife/domora/v0.7.0/scripts/bootstrap.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/d4rkstrife/domora/v0.7.1/scripts/bootstrap.sh | sudo bash
 ```
 
 Le script utilise apt et les distributions officielles Node.js (archive Node contrôlée par SHA256). Il crée un compte système maison, TLS, les dossiers de médias et les services maison, maison-admin, maison-downloads. Il préserve les fichiers de données existants et tente de configurer maison-wireguard avec l'adresse IPv6 publique stable détectée. Sans adresse utilisable, il annonce clairement que la 5G reste non configurée.
