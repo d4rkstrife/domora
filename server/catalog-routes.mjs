@@ -4,7 +4,8 @@ export async function catalogRoutes({req,res,route,url,device,media,catalog,json
  if(req.method==='GET'&&['/api/v1/tv/poster','/api/v1/media/catalog/poster'].includes(route)){
   const file=url.searchParams.get('path')||'';
   try{await tvFileAllowed(media,device.role==='tv'?device:{mediaRoots:['']},file)}catch{json(res,403,{message:'Affiche non autorisée.'});return true}
-  try{const bytes=await catalog.image(file);res.writeHead(200,{'Content-Type':'image/jpeg','Content-Length':bytes.length,'Cache-Control':'private, max-age=300','X-Content-Type-Options':'nosniff'});res.end(bytes)}catch{json(res,404,{message:'Affiche indisponible.'})}
+  const kind=url.searchParams.get('kind')||'poster';if(!['poster','backdrop'].includes(kind)){json(res,400,{message:'Type d’image invalide.'});return true}
+  try{const bytes=await catalog.image(file,kind);res.writeHead(200,{'Content-Type':'image/jpeg','Content-Length':bytes.length,'Cache-Control':'private, max-age=300','X-Content-Type-Options':'nosniff'});res.end(bytes)}catch{json(res,404,{message:'Affiche indisponible.'})}
   return true;
  }
  if(!route.startsWith('/api/v1/media/catalog/'))return false;

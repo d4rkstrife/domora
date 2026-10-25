@@ -2,7 +2,7 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id(
 android {
  namespace = "fr.domora.tv"
  compileSdk = 35
- defaultConfig { applicationId = "fr.domora.tv"; minSdk = 26; targetSdk = 35; versionCode = 3; versionName = "0.2.0" }
+ defaultConfig { applicationId = "fr.domora.tv"; minSdk = 26; targetSdk = 35; versionCode = 4; versionName = "0.3.0" }
  sourceSets.getByName("main").java.srcDir("../common/src/main/java")
  sourceSets.getByName("main").res.srcDir("../common/src/main/res")
  buildFeatures { compose = true }

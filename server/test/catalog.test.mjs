@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {MovieCatalog,guessMovie,chooseMovie} from '../catalog.mjs';
 import {catalogRoutes} from '../catalog-routes.mjs';
-const movie={id:42,title:'Le Voyage',original_title:'The Journey',release_date:'2004-05-01',overview:'Un voyage.',poster_path:'/poster42.jpg',adult:false};
+const movie={id:42,title:'Le Voyage',original_title:'The Journey',release_date:'2004-05-01',overview:'Un voyage.',poster_path:'/poster42.jpg',backdrop_path:'/landscape42.jpg',runtime:110,genres:[{id:18,name:'Drame'}],adult:false};
 const token='private-test-token-not-for-export';
 const json=value=>new Response(JSON.stringify(value),{headers:{'Content-Type':'application/json'}});
 async function settled(catalog){for(let i=0;i<200&&catalog.pending.size;i++)await new Promise(r=>setTimeout(r,5));assert.equal(catalog.pending.size,0)}
@@ -22,13 +22,15 @@ test('Titres nettoyés, années, épisodes et correspondances ambiguës',()=>{
 
 test('Jeton chiffré, cache persistant et aucun appel Internet après identification',async()=>{
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'domora-catalog-'));let calls=0;
- const fetcher=async(url,options)=>{calls++;const u=new URL(url);assert.equal(options.redirect,'error');if(u.hostname==='image.tmdb.org')return new Response(Buffer.from([255,216,255,217]));assert.equal(u.hostname,'api.themoviedb.org');assert.equal(options.headers.Authorization,'Bearer '+token);if(u.pathname.endsWith('/configuration'))return json({images:{}});return json({results:[movie]})};
+ const fetcher=async(url,options)=>{calls++;const u=new URL(url);assert.equal(options.redirect,'error');if(u.hostname==='image.tmdb.org')return new Response(Buffer.from([255,216,255,217]));assert.equal(u.hostname,'api.themoviedb.org');assert.equal(options.headers.Authorization,'Bearer '+token);if(u.pathname.endsWith('/configuration'))return json({images:{}});if(u.pathname.endsWith('/movie/42'))return json(movie);return json({results:[movie]})};
  try{
   const catalog=new MovieCatalog(root,{fetcher});await catalog.configure(token);
   const file={path:'Films/Le.Voyage.2004.mkv',title:'Filename'};const initial=await catalog.enrich(file);assert.equal(initial.catalogState,'pending');await settled(catalog);
   const enriched=await catalog.enrich(file);assert.equal(enriched.title,'Le Voyage');assert.equal(enriched.posterReady,true);assert.equal(enriched.metadata.id,42);
+  assert.equal(enriched.metadata.backdrop,'/landscape42.jpg');assert.equal(enriched.metadata.runtime,110);assert.deepEqual(enriched.metadata.genres,['Drame']);
   const secret=await fs.readFile(path.join(root,'.catalog','credentials.json'),'utf8');assert.ok(!secret.includes(token));assert.ok(!JSON.stringify(catalog.status()).includes(token));
   const before=calls;const offline=new MovieCatalog(root,{fetcher:()=>{throw Error('Internet coupé')}});assert.equal((await offline.enrich(file)).posterReady,true);assert.equal((await offline.image(file.path)).length,4);assert.equal(calls,before);
+  assert.equal((await offline.image(file.path,'backdrop')).length,4);await assert.rejects(offline.image(file.path,'../../private'));
   assert.equal(catalog.clean({...movie,poster_path:'https://127.0.0.1/secret'}).poster,null);
  }finally{await fs.rm(root,{recursive:true,force:true})}
 });
