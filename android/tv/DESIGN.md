@@ -12,6 +12,7 @@ Les épisodes présents restent des fichiers lisibles ; cette interface n’ajou
 - `src/main/res/drawable-nodpi/domora_launcher.png` : déclinaison PNG 512 × 512 du symbole pour les lanceurs Fire TV ; référence explicite sur l’application et l’activité dès la version 0.3.1.
 - La version 0.3.2 utilise l’alias de lancement `DomoraLauncher`, qui conserve l’activité et les données mais fournit une nouvelle identité de composant au lanceur.
 - Dès la version 0.3.3, l’ancienne ressource `banner` redirige elle aussi vers la nouvelle identité afin de ne plus embarquer l’ancien pictogramme.
+- Depuis 0.3.4, l’identifiant installé est `fr.domora.player` (espace de noms source inchangé : `fr.domora.tv`). Cette migration unique permet de sortir de la fiche d’illustration Fire TV restée attachée à l’ancien paquet `fr.domora.tv`, y compris après suppression de celui-ci. L’ancienne application est retirée après validation de la nouvelle. Un nouveau QR est nécessaire lors de cette migration ; les mises à jour suivantes conservent l’identifiant `fr.domora.player`.
 - `src/main/res/drawable-nodpi/domora_banner.png` : bannière TV réalisée par code graphique, avec le symbole et le nom Domora.
 - `src/main/res/drawable/domora_panda.xml` : avatar vectoriel du profil.
 - Les pictogrammes lecture, ajout, validation et informations sont dessinés en Canvas vectoriel dans `CinemaHome.kt`.
