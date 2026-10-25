@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 
-@Composable fun TelevisionsScreen(client:MaisonClient) {
+@Composable fun TelevisionsScreen(client:MaisonClient,onCatalog:()->Unit) {
     val context=LocalContext.current;val scope=rememberCoroutineScope()
     var request by remember{mutableStateOf<JSONObject?>(null)}
     var folders by remember{mutableStateOf(emptyList<String>())}
@@ -29,6 +29,7 @@ import org.json.JSONObject
     if(remove!=null)AlertDialog(onDismissRequest={remove=null},title={Text("Retirer cette télévision ?")},text={Text("Ses vidéos et sa connexion privée au serveur seront révoquées.")},confirmButton={TextButton(onClick={val id=remove!!.getString("id");remove=null;action{client.delete("devices/authorized/$id");refresh()}}){Text("Retirer l’accès")}},dismissButton={TextButton(onClick={remove=null}){Text("Annuler")}})
     LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp)) {
         item{StatusCard("Domora TV","Approuvez une télé et ses dossiers vidéo",MaisonIcons.Videocam)}
+        item{OutlinedButton(onClick=onCatalog,modifier=Modifier.fillMaxWidth()){Text("Jaquettes et identification des films")}}
         item{Text("Ouvrez Domora TV, puis scannez son QR code. Le téléphone et la télé doivent être sur le même Wi-Fi ; votre Pi peut être ailleurs grâce à WireGuard.",color=MaisonMuted)}
         if(pending)item{LinearProgressIndicator(Modifier.fillMaxWidth())}
         if(error.isNotBlank())item{Text(error,color=MaterialTheme.colorScheme.error)}

@@ -7,7 +7,7 @@ import { administrative } from './admin-client.mjs';
 import { validateWireGuardPeer } from './wireguard.mjs';
 
 export function tvRouteAllowed(method, route) {
-  return method === 'GET' && ['/api/v1/tv/library', '/api/v1/tv/progress', '/api/v1/files/content'].includes(route)
+  return method === 'GET' && ['/api/v1/tv/library', '/api/v1/tv/progress', '/api/v1/tv/poster', '/api/v1/files/content'].includes(route)
     || method === 'POST' && route === '/api/v1/tv/progress';
 }
 export function normalTvPath(value) {
@@ -28,7 +28,7 @@ export async function tvFileAllowed(root, device, value) {
   }
   throw Error('Cette vidéo ne fait pas partie des dossiers autorisés.');
 }
-export async function televisions({req,res,route,url,store,media,device,json,body,certificate,enroll=administrative}) {
+export async function televisions({req,res,route,url,store,media,device,json,body,certificate,catalog,enroll=administrative}) {
   const ok = value => { json(res,200,value); return true; };
   if (req.method === 'POST' && route === '/api/v1/tv/approve') {
     if (device.role !== 'admin') { json(res,403,{message:'Seul le propriétaire peut autoriser une télévision.'}); return true; }
@@ -61,7 +61,7 @@ export async function televisions({req,res,route,url,store,media,device,json,bod
   if (req.method === 'GET' && route === '/api/v1/tv/library') {
     const videos = [];
     for (const video of await library(media)) {
-      try { await tvFileAllowed(media,device,video.path); videos.push({...video,progress:device.playback?.[video.path] || null}); } catch {}
+      try { await tvFileAllowed(media,device,video.path); videos.push({...catalog?await catalog.enrich(video):video,progress:device.playback?.[video.path] || null}); } catch {}
     }
     return ok(videos);
   }

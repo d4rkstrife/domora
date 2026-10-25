@@ -2,8 +2,9 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id(
 android {
  namespace = "fr.domora.tv"
  compileSdk = 35
- defaultConfig { applicationId = "fr.domora.tv"; minSdk = 26; targetSdk = 35; versionCode = 2; versionName = "0.1.1" }
+ defaultConfig { applicationId = "fr.domora.tv"; minSdk = 26; targetSdk = 35; versionCode = 3; versionName = "0.2.0" }
  sourceSets.getByName("main").java.srcDir("../common/src/main/java")
+ sourceSets.getByName("main").res.srcDir("../common/src/main/res")
  buildFeatures { compose = true }
  compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17; isCoreLibraryDesugaringEnabled = true }
 }

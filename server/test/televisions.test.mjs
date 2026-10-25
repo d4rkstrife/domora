@@ -55,11 +55,13 @@ test('API TV : interdiction des commandes maison, lecture partielle et révocati
   for(let i=0;i<100;i++){try{await request('discovery');break}catch{await new Promise(r=>setTimeout(r,50))}}
   async function login(device,pair){const challenge=await(await request('auth/challenge','POST',{deviceId:device.id})).json();return(await(await request('auth/session','POST',{deviceId:device.id,signature:crypto.sign('sha256',Buffer.from(challenge.challenge),pair.privateKey).toString('base64')})).json()).token}
   const token=await login(tv,keys);assert.ok(token);
-  for(const route of ['settings','server','backup','files','cameras','home/devices','downloads','devices/authorized','rooms'])assert.equal((await request(route,'GET',undefined,token)).status,403,route);
+  for(const route of ['settings','server','backup','files','cameras','home/devices','downloads','devices/authorized','rooms','media/catalog/settings','media/catalog/search?query=secret'])assert.equal((await request(route,'GET',undefined,token)).status,403,route);
   assert.equal((await request('users/role','POST',{id:tv.id,role:'admin'},token)).status,403);
   const videos=await(await request('tv/library','GET',undefined,token)).json();assert.equal(videos.length,1);
   const range=await fetch(`http://127.0.0.1:${port}/api/v1/files/content?path=Films/film.mp4`,{headers:{Authorization:`Bearer ${token}`,Range:'bytes=2-5'}});assert.equal(range.status,206);assert.equal(await range.text(),'2345');
   assert.equal((await request('files/content?path=private.mp4','GET',undefined,token)).status,403);
+  assert.equal((await request('tv/poster?path=private.mp4','GET',undefined,token)).status,403);
+  assert.equal((await request('tv/poster?path=Films/film.mp4','GET',undefined,token)).status,404);
   const owner=await login(admin,adminKeys);assert.equal((await request('users/role','POST',{id:tv.id,role:'admin'},owner)).status,400);
   assert.equal((await request('devices/authorized/'+tv.id,'DELETE',undefined,owner)).status,200);
   assert.equal((await request('tv/library','GET',undefined,token)).status,401);

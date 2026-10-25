@@ -2,9 +2,10 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id(
 android {
     namespace = "fr.mamaison.app"
     compileSdk = 35
-    defaultConfig { applicationId = "fr.mamaison.app"; minSdk = 29; targetSdk = 35; versionCode = 16; versionName = "0.7.0" }
+    defaultConfig { applicationId = "fr.mamaison.app"; minSdk = 29; targetSdk = 35; versionCode = 17; versionName = "0.8.0" }
     buildFeatures { compose = true; buildConfig = true }
     sourceSets.getByName("main").java.srcDir("../common/src/main/java")
+    sourceSets.getByName("main").res.srcDir("../common/src/main/res")
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17; isCoreLibraryDesugaringEnabled = true }
 
 }

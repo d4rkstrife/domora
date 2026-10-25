@@ -17,4 +17,18 @@ La télévision peut uniquement consulter et lire les vidéos des dossiers autor
 
 Pour utiliser un autre réseau, le serveur WireGuard doit être joignable depuis Internet. Avec l’installation SFR actuelle, cela nécessite une connectivité IPv6 sur le réseau du téléviseur et la règle UDP 51820 de la box. Une modification de l’adresse publique du serveur nécessite une mise à jour de la configuration ; aucun domaine ou relais tiers n’est utilisé.
 
-La lecture est directe : la compatibilité des codecs dépend du téléviseur. Le Pi ne transcode pas les vidéos dans cette version. La validation sur le téléviseur physique reste nécessaire après compilation et tests des contrôles d’accès serveur.
+La lecture est directe : la compatibilité des codecs dépend du téléviseur. Le Pi ne transcode pas les vidéos dans cette version. La grille, les affiches TMDB et la navigation à la télécommande ont été vérifiées sur un appareil Fire TV sous Android 9 ; les autres modèles restent à valider.
+
+## Jaquettes et identification des films
+
+À partir du serveur et téléphone 0.8.0 et de Domora TV 0.2.0, la vidéothèque affiche des cartes verticales, le titre sous chaque affiche et une sélection blanche agrandie à la télécommande. La lecture conserve les marges noires et le maintien de l’écran allumé.
+
+Dans le téléphone, ouvrir **Plus → Téléviseurs → Jaquettes et identification des films**. Créer un compte TMDB, demander un accès développeur pour un usage personnel et copier le **jeton d’accès en lecture à l’API** depuis https://www.themoviedb.org/settings/api. Les conditions TMDB sont acceptées par le titulaire du compte. Coller le jeton dans l’application et choisir **Enregistrer et rechercher les jaquettes**. Sur la télévision, choisir **Actualiser**.
+
+Les titres nettoyés et l’année du nom de fichier servent à la recherche ; les épisodes de séries sont exclus. Les correspondances ambiguës gardent une affiche de remplacement. Depuis le même écran téléphone, utiliser **Corriger l’identification**, rechercher le titre puis choisir le bon film et son année. **Retirer la correspondance** conserve un remplacement pour ce fichier. Les recherches et affiches nécessitent Internet lors du premier chargement ; les affiches en cache restent disponibles sans accès à TMDB.
+
+Le jeton est chiffré dans `/var/lib/maison/.catalog/credentials.json`, avec une clé locale privée dans le même dossier. Il n’est transmis ni à la télévision ni aux sauvegardes JSON, et n’est pas inclus dans les APK ou GitHub. Sauvegarder le dossier `.catalog` de manière privée pour conserver la connexion et le cache après réinstallation. La clé locale protège contre une divulgation du seul fichier de configuration, pas contre une compromission complète du serveur.
+
+Le serveur limite les recherches simultanées à deux, met les résultats en cache pendant sept jours et temporise après une erreur. Il ne recherche que les vidéos visibles par la TV ayant déclenché une consultation ; une analyse propriétaire peut porter sur toute la bibliothèque. L’API des affiches vérifie les droits sur la vidéo avant de servir une image. La configuration, la recherche manuelle et la correction sont réservées au propriétaire.
+
+Crédits : TMDB fournit les métadonnées et affiches. Le logo officiel est présenté, avec la mention requise, dans **À propos** sur la TV et dans les crédits de l’écran téléphone. Ressource d’origine : https://www.themoviedb.org/assets/2/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.svg (conversion vectorielle Android, proportions et couleurs conservées).

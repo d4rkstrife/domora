@@ -10,12 +10,15 @@ import { Store, digest, resolveFile, byteRange } from './core.mjs';
 import { discoverUsb, CameraCapture } from './cameras.mjs';
 import { modules } from './modules.mjs';
 import { televisions, tvRouteAllowed, tvFileAllowed } from './televisions.mjs';
+import {MovieCatalog} from './catalog.mjs';
+import {catalogRoutes} from './catalog-routes.mjs';
 import { Downloads } from './downloads.mjs';
 import { administrative } from './admin-client.mjs';
 
 const home = path.resolve(process.env.MAISON_DATA || 'data');
 const media = path.resolve(process.env.MAISON_MEDIA || path.join(home, 'media'));
 const store = await new Store(home).open();
+const catalog = new MovieCatalog(home);
 await fs.mkdir(media, { recursive: true });
 let code = crypto.randomInt(100000, 1000000).toString();
 let pairUntil = Date.now() + 600000;
@@ -85,7 +88,8 @@ const handler = async (req, res) => {
           catch { return json(res,403,{message:'Vidéo non autorisée.'}); }
         }
       }
-      if (await televisions({req,res,route,url,store,media,device,json,body,certificate})) return;
+      if (await catalogRoutes({req,res,route,url,device,media,catalog,json,body})) return;
+      if (await televisions({req,res,route,url,store,media,device,json,body,certificate,catalog})) return;
       if (req.method === 'POST' && route === '/api/v1/pairing/open') { if(device.role!=='admin')return json(res,403,{message:'Action réservée au propriétaire.'});code=crypto.randomInt(100000,1000000).toString();pairUntil=Date.now()+600000;return json(res,200,{code,expires:pairUntil}); }
       if (await modules({ req,res,route,url,store,media,device,json,body })) return;
       if (req.method === 'POST' && route === '/api/v1/cameras/discover') { try { return json(res, 200, await scan(true)); } catch (e) { return json(res, 503, { message: e.message }); } }

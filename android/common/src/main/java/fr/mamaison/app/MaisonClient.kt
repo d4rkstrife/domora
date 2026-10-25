@@ -173,6 +173,11 @@ class MaisonClient(context: Context) {
     }
     fun mediaUrl(file: String) = "${if(remoteActive)remoteUrl else if(vpnActive)wireguard.serverUrl else address}/api/v1/files/content?path=${java.net.URLEncoder.encode(file, "UTF-8")}"
     fun authHeaders() = mapOf("Authorization" to "Bearer $token")
+    suspend fun poster(file:String,tv:Boolean=true):android.graphics.Bitmap = withContext(Dispatchers.IO){
+        val route=if(tv)"tv/poster" else "media/catalog/poster"
+        val c=connection("${if(remoteActive)remoteUrl else if(vpnActive)wireguard.serverUrl else address}/api/v1/$route?path=${java.net.URLEncoder.encode(file,"UTF-8")}",remoteActive)
+        try{authHeaders().forEach{(key,value)->c.setRequestProperty(key,value)};require(c.responseCode==200){"Affiche indisponible"};c.inputStream.use{android.graphics.BitmapFactory.decodeStream(it)?:throw Exception("Affiche illisible")}}finally{c.disconnect()}
+    }
     fun mediaConnection(url: String): HttpURLConnection {
         val path=URL(url).file
         require(path.startsWith("/api/v1/files/content?")){"Adresse de média invalide"}
