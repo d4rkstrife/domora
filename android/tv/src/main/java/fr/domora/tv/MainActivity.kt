@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.material3.*
@@ -22,6 +23,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.PlaybackException
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
+import androidx.media3.ui.AspectRatioFrameLayout
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import fr.mamaison.app.*
@@ -75,16 +77,24 @@ class MainActivity:ComponentActivity(){
  val context=androidx.compose.ui.platform.LocalContext.current;val scope=rememberCoroutineScope();var error by remember{mutableStateOf("")}
  val player=remember(video){ExoPlayer.Builder(context).setMediaSourceFactory(DefaultMediaSourceFactory(client.mediaHttpFactory())).build().apply{setMediaItem(MediaItem.fromUri(client.mediaUrl(video.getString("path"))));seekTo((video.optJSONObject("progress")?.optDouble("position",0.0)?.times(1000)?:0.0).toLong());addListener(object:Player.Listener{override fun onPlayerError(e:PlaybackException){error="Lecture impossible : ${e.errorCodeName}. Ce format peut être incompatible avec la télévision."}});prepare();playWhenReady=true}}
  suspend fun save(){if(player.duration>0)runCatching{client.post("tv/progress",JSONObject().put("path",video.getString("path")).put("position",player.currentPosition/1000.0).put("duration",player.duration/1000.0))}}
+ val playerView=remember(player){PlayerView(context).apply{
+  this.player=player;useController=true;controllerShowTimeoutMs=3000;setShowSubtitleButton(true)
+  setBackgroundColor(android.graphics.Color.BLACK);setShutterBackgroundColor(android.graphics.Color.BLACK)
+  resizeMode=AspectRatioFrameLayout.RESIZE_MODE_FIT
+ }}
  BackHandler{scope.launch{save();close()}}
  LaunchedEffect(player){while(true){delay(10000);save()}}
  DisposableEffect(player){
+  fun updateScreen(){playerView.keepScreenOn=player.playWhenReady&&player.playerError==null&&(player.playbackState==Player.STATE_READY||player.playbackState==Player.STATE_BUFFERING)}
+  val screenListener=object:Player.Listener{override fun onEvents(player:Player,events:Player.Events){updateScreen()}}
+  player.addListener(screenListener);updateScreen()
   val lifecycle=(context as ComponentActivity).lifecycle
   val observer=androidx.lifecycle.LifecycleEventObserver{_,event->if(event==androidx.lifecycle.Lifecycle.Event.ON_STOP){player.pause();scope.launch{save()}}}
   lifecycle.addObserver(observer)
-  onDispose{lifecycle.removeObserver(observer);player.release()}
+  onDispose{lifecycle.removeObserver(observer);player.removeListener(screenListener);playerView.keepScreenOn=false;playerView.player=null;player.release()}
  }
- Box(Modifier.fillMaxSize()){
-  AndroidView(factory={PlayerView(it).apply{this.player=player;useController=true;controllerShowTimeoutMs=3000;setShowSubtitleButton(true);requestFocus()}},modifier=Modifier.fillMaxSize())
+ Box(Modifier.fillMaxSize().background(Color.Black)){
+  AndroidView(factory={playerView.apply{requestFocus()}},modifier=Modifier.fillMaxSize())
   if(error.isNotEmpty())Column(Modifier.padding(40.dp)){Text(error);Button(onClick=close){Text("Retour aux vidéos")}}
  }
 }
