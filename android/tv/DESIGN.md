@@ -9,6 +9,7 @@ Les épisodes présents restent des fichiers lisibles ; cette interface n’ajou
 - `src/main/res/drawable-nodpi/domora_landscape.png` : paysage original généré avec l’outil intégré image_gen, puis copié dans le projet sans modification.
 - `src/main/res/drawable/domora_mark.xml` : nouveau symbole Domora vectoriel en ruban violet.
 - `src/main/res/drawable/domora_icon.xml` : nouvelle icône de lancement.
+- `src/main/res/drawable-nodpi/domora_launcher.png` : déclinaison PNG 512 × 512 du symbole pour les lanceurs Fire TV ; référence explicite sur l’application et l’activité dès la version 0.3.1.
 - `src/main/res/drawable-nodpi/domora_banner.png` : bannière TV réalisée par code graphique, avec le symbole et le nom Domora.
 - `src/main/res/drawable/domora_panda.xml` : avatar vectoriel du profil.
 - Les pictogrammes lecture, ajout, validation et informations sont dessinés en Canvas vectoriel dans `CinemaHome.kt`.
