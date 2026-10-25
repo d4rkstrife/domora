@@ -5,6 +5,7 @@
  <uses-feature android:name="android.software.leanback" android:required="false" />
  <application android:label="Domora TV" android:banner="@drawable/domora_banner" android:icon="@drawable/domora_launcher" android:roundIcon="@drawable/domora_launcher" android:allowBackup="false" android:theme="@android:style/Theme.Material.NoActionBar">
   <service android:name="com.wireguard.android.backend.GoBackend$VpnService" android:permission="android.permission.BIND_VPN_SERVICE" android:exported="false"><intent-filter><action android:name="android.net.VpnService" /></intent-filter></service>
-  <activity android:name=".MainActivity" android:icon="@drawable/domora_launcher" android:banner="@drawable/domora_banner" android:exported="true" android:screenOrientation="landscape" android:configChanges="orientation|screenSize"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LEANBACK_LAUNCHER" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity>
+  <activity android:name=".MainActivity" android:icon="@drawable/domora_launcher" android:banner="@drawable/domora_banner" android:exported="true" android:screenOrientation="landscape" android:configChanges="orientation|screenSize" />
+  <activity-alias android:name=".DomoraLauncher" android:targetActivity=".MainActivity" android:label="Domora TV" android:icon="@drawable/domora_launcher" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LEANBACK_LAUNCHER" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity-alias>
  </application>
 </manifest>
