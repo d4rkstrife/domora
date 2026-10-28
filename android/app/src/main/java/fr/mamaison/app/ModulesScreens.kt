@@ -28,21 +28,24 @@ internal fun bytes(value:Double)=if(value>=1e9)"%.1f Go".format(value/1e9)else "
 @Composable internal fun EmptyCard(title:String,description:String,icon:androidx.compose.ui.graphics.vector.ImageVector=MaisonIcons.Info){StatusCard(title,description,icon)}
 
 @Composable fun DownloadsScreen(client:MaisonClient,initialMagnet:String="",onSharedMagnetConsumed:()->Unit={},chooseTorrent:()->Unit){
-    val scope=rememberCoroutineScope();var list by remember{mutableStateOf(listOf<JSONObject>())};var magnet by rememberSaveable{mutableStateOf(initialMagnet)}
-    var message by remember{mutableStateOf("")};var loading by remember{mutableStateOf(true)};var pending by remember{mutableStateOf(false)}
+    val recovery=LocalMobileRecovery.current
+    val scope=rememberCoroutineScope();var list by remember{mutableStateOf(recovery.cached("downloads")?.let{JSONArray(it).objects()}?:emptyList<JSONObject>())};var magnet by rememberSaveable{mutableStateOf(initialMagnet)}
+    var readError by remember{mutableStateOf("")};var message by remember{mutableStateOf("")};var loading by remember{mutableStateOf(true)};var pending by remember{mutableStateOf(false)}
     var filter by rememberSaveable{mutableStateOf("Tous")};var add by rememberSaveable{mutableStateOf(initialMagnet.isNotBlank())};var remove by remember{mutableStateOf<JSONObject?>(null)};var deleteData by remember{mutableStateOf(false)}
-    suspend fun refresh(){list=JSONArray(client.get("downloads")).objects()}
-    fun action(work:suspend ()->Unit){scope.launch{pending=true;message="";try{work();refresh()}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message?:"Action impossible"}finally{pending=false}}}
+    var actionFailed by remember{mutableStateOf(false)}
+    suspend fun refresh(){list=JSONArray(recovery.read("downloads")).objects()}
+    fun action(work:suspend ()->Unit){scope.launch{pending=true;message="";actionFailed=false;try{work();refresh()}catch(e:CancellationException){throw e}catch(e:Exception){actionFailed=true;message=mobileFailure(e,"téléchargements").message}finally{pending=false}}}
     LaunchedEffect(initialMagnet){if(initialMagnet.isNotBlank()){magnet=initialMagnet;add=true;onSharedMagnetConsumed()}}
-    LaunchedEffect(Unit){while(true){try{refresh()}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message?:"Téléchargements indisponibles"}finally{loading=false};delay(4000)}}
+    LaunchedEffect(recovery.generation){while(true){try{refresh();readError=""}catch(e:CancellationException){throw e}catch(e:Exception){readError=mobileFailure(e,"téléchargements").message}finally{loading=false};delay(4000)}}
     val visible=list.filter{when(filter){"En cours"->it.optDouble("progress")<1&&it.optString("state")!="pause";"Terminés"->it.optDouble("progress")>=1;"En pause"->it.optString("state")=="pause";else->true}}
     LazyColumn(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=24.dp)){
         item{StatusCard("${list.size} téléchargement${if(list.size>1)"s" else ""}","↓ ${bytes(list.sumOf{it.optDouble("downloadSpeed")})}/s    ↑ ${bytes(list.sumOf{it.optDouble("uploadSpeed")})}/s",MaisonIcons.Storage)}
         item{Button(onClick={add=true},modifier=Modifier.fillMaxWidth()){Text("+ Ajouter un téléchargement")}}
         item{Filters(listOf("Tous","En cours","Terminés","En pause"),filter){filter=it}}
         if(loading||pending)item{LinearProgressIndicator(Modifier.fillMaxWidth())}
-        if(message.isNotBlank())item{Notice(message)}
-        if(visible.isEmpty()&&!loading&&message.isBlank())item{EmptyCard("Aucun téléchargement","Ajoutez un lien magnet ou un fichier torrent, ou choisissez un autre filtre.",MaisonIcons.Storage)}
+        if(readError.isNotBlank())item{RetryNotice(readError,enabled=!pending){scope.launch{loading=true;try{refresh();readError=""}catch(e:CancellationException){throw e}catch(e:Exception){readError=mobileFailure(e,"téléchargements").message}finally{loading=false}}}}
+        if(message.isNotBlank())item{Notice(message,isError=actionFailed)}
+        if(visible.isEmpty()&&!loading&&message.isBlank()&&readError.isBlank())item{EmptyCard("Aucun téléchargement","Ajoutez un lien magnet ou un fichier torrent, ou choisissez un autre filtre.",MaisonIcons.Storage)}
         items(visible,key={it.getString("id")}){torrent->
             val progress=torrent.optDouble("progress").toFloat().coerceIn(0f,1f)
             val state=when(torrent.optString("state")){"pause"->"En pause";"telechargement","téléchargement"->"Téléchargement";"partage"->"Partage";"verification","vérification"->"Vérification";"erreur"->"Action requise";"en_attente"->"En attente";else->if(progress>=1f)"Terminé" else "En cours"}

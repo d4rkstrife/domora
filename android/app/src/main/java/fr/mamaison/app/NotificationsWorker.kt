@@ -21,7 +21,7 @@ class NotificationsWorker(context:Context,parameters:WorkerParameters):Coroutine
         val manager=applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(NotificationChannel("maison-status","Votre maison",NotificationManager.IMPORTANCE_DEFAULT))
         if(android.os.Build.VERSION.SDK_INT>=33&&applicationContext.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)return
-        manager.notify(id,Notification.Builder(applicationContext,"maison-status").setSmallIcon(fr.mamaison.app.R.drawable.ic_maison).setContentTitle("Ma Maison").setContentText(message).setAutoCancel(true).build())
+        manager.notify(id,Notification.Builder(applicationContext,"maison-status").setSmallIcon(fr.mamaison.app.R.drawable.domora_notification).setContentTitle("Domora").setContentText(message).setAutoCancel(true).build())
     }
     override suspend fun doWork():Result {
         val client=MaisonClient(applicationContext);if(!client.paired)return Result.success()

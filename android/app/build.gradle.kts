@@ -2,7 +2,7 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id(
 android {
     namespace = "fr.mamaison.app"
     compileSdk = 35
-    defaultConfig { applicationId = "fr.mamaison.app"; minSdk = 29; targetSdk = 35; versionCode = 19; versionName = "0.9.1" }
+    defaultConfig { applicationId = "fr.mamaison.app"; minSdk = 29; targetSdk = 35; versionCode = 20; versionName = "0.9.2" }
     buildFeatures { compose = true; buildConfig = true }
     sourceSets.getByName("main").java.srcDir("../common/src/main/java")
     sourceSets.getByName("main").res.srcDir("../common/src/main/res")

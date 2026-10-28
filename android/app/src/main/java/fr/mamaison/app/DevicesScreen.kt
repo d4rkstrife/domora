@@ -20,11 +20,12 @@ import org.json.JSONObject
 
 private fun deviceOn(device:JSONObject)=device.optJSONObject("state")?.let{if(it.has("on"))it.optBoolean("on")else it.optBoolean("output")}?:false
 @Composable fun HomeScreen(client:MaisonClient){
-    val scope=rememberCoroutineScope();var devices by remember{mutableStateOf(listOf<JSONObject>())};var rooms by remember{mutableStateOf(listOf<JSONObject>())};var found by remember{mutableStateOf(listOf<JSONObject>())}
+    val recovery=LocalMobileRecovery.current
+    val scope=rememberCoroutineScope();var devices by remember{mutableStateOf(recovery.cached("home/devices")?.let{JSONArray(it).objects()}?:emptyList<JSONObject>())};var rooms by remember{mutableStateOf(recovery.cached("rooms")?.let{JSONArray(it).objects()}?:emptyList<JSONObject>())};var found by remember{mutableStateOf(listOf<JSONObject>())}
     var message by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var selectedId by rememberSaveable{mutableStateOf<String?>(null)};var filter by rememberSaveable{mutableStateOf("Tous")};var discover by remember{mutableStateOf(false)};var brightness by remember{mutableStateOf(50f)}
-    suspend fun refresh(){devices=JSONArray(client.get("home/devices")).objects();rooms=JSONArray(client.get("rooms")).objects()}
-    fun action(work:suspend ()->Unit){scope.launch{busy=true;message="";try{work();refresh()}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message?:"Commande impossible"}finally{busy=false}}}
-    LaunchedEffect(Unit){action{}}
+    suspend fun refresh(){devices=JSONArray(recovery.read("home/devices")).objects();rooms=JSONArray(recovery.read("rooms")).objects()}
+    fun action(work:suspend ()->Unit){scope.launch{busy=true;message="";try{work();refresh()}catch(e:CancellationException){throw e}catch(e:Exception){message=mobileFailure(e,"appareils").message}finally{busy=false}}}
+    LaunchedEffect(recovery.generation){action{}}
     val selected=devices.find{it.optString("id")==selectedId}
     BackHandler(enabled=selectedId!=null){selectedId=null}
     fun room(d:JSONObject)=rooms.find{it.optString("id")==d.optString("roomId")}?.optString("name")?:"Sans pièce"
@@ -34,8 +35,8 @@ private fun deviceOn(device:JSONObject)=device.optJSONObject("state")?.let{if(it
             item{Filters(listOf("Tous","Lumières","Prises"),filter){filter=it}}
             item{Button(enabled=!busy,onClick={discover=true;action{val result=JSONObject(client.post("home/discover"));val existing=devices.map{it.optString("sourceId")}.toSet();found=result.getJSONArray("devices").objects().filter{it.optString("sourceId") !in existing};message=if(found.isEmpty())"Aucun nouvel appareil Shelly compatible trouvé." else "${found.size} appareil(s) à ajouter."}},modifier=Modifier.fillMaxWidth()){Text(if(busy)"Recherche…" else "+ Ajouter un appareil")}}
             if(busy)item{LinearProgressIndicator(Modifier.fillMaxWidth())}
-            if(message.isNotBlank())item{Notice(message)}
-            if(devices.isEmpty()&&!busy)item{EmptyCard("Votre maison attend ses appareils","Recherchez vos appareils Shelly compatibles sur le réseau local.",MaisonIcons.Devices)}
+            if(message.isNotBlank())item{Notice(message);TextButton(enabled=!busy,onClick={action{}}){Text("Actualiser les données")}}
+            if(devices.isEmpty()&&!busy&&message.isBlank())item{EmptyCard("Votre maison attend ses appareils","Recherchez vos appareils Shelly compatibles sur le réseau local.",MaisonIcons.Devices)}
             items(devices.filter{filter=="Tous"||if(filter=="Prises")it.optString("type")=="switch" else it.optString("type")!="switch"},key={it.getString("id")}){d->
                 val light=d.optString("type")!="switch";val tint=if(light)Color(0xFFFFC34A)else Color(0xFF56C3E0)
                 Card(onClick={open(d)},modifier=Modifier.fillMaxWidth()){Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(44.dp).background(tint.copy(alpha=.14f),RoundedCornerShape(12.dp)),contentAlignment=Alignment.Center){Icon(if(light)MaisonIcons.Lightbulb else MaisonIcons.Devices,null,tint=tint)};Spacer(Modifier.width(14.dp));Column(Modifier.weight(1f)){Text(d.getString("name"),style=MaterialTheme.typography.titleMedium);Text(room(d),style=MaterialTheme.typography.bodySmall,color=MaisonMuted)};Switch(checked=deviceOn(d),enabled=!busy,onCheckedChange={on->action{client.post("home/devices/${d.getString("id")}/control",JSONObject().put("on",on))}})}}
@@ -44,7 +45,7 @@ private fun deviceOn(device:JSONObject)=device.optJSONObject("state")?.let{if(it
         }else{
             item{TextButton(onClick={selectedId=null}){Text("‹  Mes appareils")}}
             item{StatusCard(selected.getString("name"),room(selected),if(selected.optString("type")=="switch")MaisonIcons.Devices else MaisonIcons.Lightbulb)}
-            if(message.isNotBlank())item{Notice(message)}
+            if(message.isNotBlank())item{Notice(message);TextButton(enabled=!busy,onClick={action{}}){Text("Actualiser les données")}}
             if(busy)item{LinearProgressIndicator(Modifier.fillMaxWidth())}
             item{Card(Modifier.fillMaxWidth()){Row(Modifier.padding(20.dp),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("Alimentation",style=MaterialTheme.typography.titleMedium);Text(if(deviceOn(selected))"Dernier état : allumé" else "Dernier état : éteint",color=MaisonMuted,style=MaterialTheme.typography.bodySmall)};Switch(deviceOn(selected),enabled=!busy,onCheckedChange={on->action{client.post("home/devices/${selected.getString("id")}/control",JSONObject().put("on",on))}})}}}
             if(selected.optJSONObject("capabilities")?.optBoolean("brightness")==true)item{Card(Modifier.fillMaxWidth()){Column(Modifier.padding(20.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("Luminosité",style=MaterialTheme.typography.titleMedium);Text("${brightness.toInt()} %")};Slider(brightness,{brightness=it},valueRange=0f..100f,enabled=!busy);Button(enabled=!busy,onClick={action{client.post("home/devices/${selected.getString("id")}/control",JSONObject().put("brightness",brightness.toInt()))}},modifier=Modifier.fillMaxWidth()){Text("Appliquer la luminosité")}}}}

@@ -19,30 +19,31 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 @Composable fun RoomsScenesScreen(client:MaisonClient){
-    val scope=rememberCoroutineScope();var rooms by remember{mutableStateOf(listOf<JSONObject>())};var scenes by remember{mutableStateOf(listOf<JSONObject>())};var devices by remember{mutableStateOf(listOf<JSONObject>())}
+    val recovery=LocalMobileRecovery.current
+    val scope=rememberCoroutineScope();var rooms by remember{mutableStateOf(recovery.cached("rooms")?.let{JSONArray(it).objects()}?:emptyList<JSONObject>())};var scenes by remember{mutableStateOf(recovery.cached("scenes")?.let{JSONArray(it).objects()}?:emptyList<JSONObject>())};var devices by remember{mutableStateOf(recovery.cached("home/devices")?.let{JSONArray(it).objects()}?:emptyList<JSONObject>())}
     var tab by rememberSaveable{mutableStateOf("Pièces")};var selectedRoom by rememberSaveable{mutableStateOf<String?>(null)};var name by rememberSaveable{mutableStateOf("")};var message by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)}
     var createRoom by remember{mutableStateOf(false)};var createScene by remember{mutableStateOf(false)};var step by remember{mutableStateOf(0)};var chosen by remember{mutableStateOf(setOf<String>())};var turnOn by remember{mutableStateOf(false)}
-    suspend fun refresh(){rooms=JSONArray(client.get("rooms")).objects();scenes=JSONArray(client.get("scenes")).objects();devices=JSONArray(client.get("home/devices")).objects()}
-    fun action(work:suspend ()->Unit){scope.launch{busy=true;message="";try{work();refresh()}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message?:"Action impossible"}finally{busy=false}}}
-    LaunchedEffect(Unit){action{}}
+    suspend fun refresh(){rooms=JSONArray(recovery.read("rooms")).objects();scenes=JSONArray(recovery.read("scenes")).objects();devices=JSONArray(recovery.read("home/devices")).objects()}
+    fun action(work:suspend ()->Unit){scope.launch{busy=true;message="";try{work();refresh()}catch(e:CancellationException){throw e}catch(e:Exception){message=mobileFailure(e,"maison").message}finally{busy=false}}}
+    LaunchedEffect(recovery.generation){action{}}
     BackHandler(enabled=selectedRoom!=null){selectedRoom=null}
     val room=rooms.find{it.optString("id")==selectedRoom}
     LazyColumn(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=24.dp)){
         if(room!=null){
             item{TextButton(onClick={selectedRoom=null}){Text("‹  Toutes les pièces")};StatusCard(room.getString("name"),"Associez les appareils à cette pièce",MaisonIcons.Home)}
-            if(message.isNotBlank())item{Notice(message)}
+            if(message.isNotBlank())item{Notice(message);TextButton(enabled=!busy,onClick={action{}}){Text("Actualiser les données")}}
             if(devices.isEmpty())item{EmptyCard("Aucun appareil à associer","Ajoutez d’abord vos appareils dans la rubrique Appareils.",MaisonIcons.Devices)}
             items(devices,key={it.getString("id")}){d->Card(Modifier.fillMaxWidth()){Row(Modifier.padding(14.dp),verticalAlignment=Alignment.CenterVertically){Icon(MaisonIcons.Devices,null,tint=MaterialTheme.colorScheme.primary);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(d.getString("name"));val other=rooms.find{it.optString("id")==d.optString("roomId")};Text(other?.optString("name")?:"Sans pièce",color=MaisonMuted,style=MaterialTheme.typography.bodySmall)};Checkbox(checked=d.optString("roomId")==room.getString("id"),enabled=!busy,onCheckedChange={checked->action{client.post("home/assign-room",JSONObject().put("deviceId",d.getString("id")).put("roomId",if(checked)room.getString("id")else JSONObject.NULL))}})}}}
         }else{
             item{Filters(listOf("Pièces","Scènes"),tab){tab=it}}
             item{Button(enabled=!busy,onClick={name="";message="";if(tab=="Pièces")createRoom=true else{step=0;chosen=emptySet();turnOn=false;createScene=true}},modifier=Modifier.fillMaxWidth()){Text(if(tab=="Pièces")"+ Ajouter une pièce" else "+ Créer une scène")}}
             if(busy)item{LinearProgressIndicator(Modifier.fillMaxWidth())}
-            if(message.isNotBlank())item{Notice(message)}
+            if(message.isNotBlank())item{Notice(message);TextButton(enabled=!busy,onClick={action{}}){Text("Actualiser les données")}}
             if(tab=="Pièces"){
-                if(rooms.isEmpty()&&!busy)item{EmptyCard("Créez votre première pièce","Salon, chambre, bureau… Organisez vos appareils comme votre maison.",MaisonIcons.Home)}
+                if(rooms.isEmpty()&&!busy&&message.isBlank())item{EmptyCard("Créez votre première pièce","Salon, chambre, bureau… Organisez vos appareils comme votre maison.",MaisonIcons.Home)}
                 items(rooms,key={it.getString("id")}){r->val count=devices.count{it.optString("roomId")==r.getString("id")};Card(onClick={selectedRoom=r.getString("id")},modifier=Modifier.fillMaxWidth()){Box(Modifier.fillMaxWidth().height(124.dp).background(Brush.linearGradient(listOf(Color(0xFF342C50),Color(0xFF1B2031))))){Icon(MaisonIcons.Home,null,tint=MaterialTheme.colorScheme.primary.copy(alpha=.25f),modifier=Modifier.align(Alignment.CenterEnd).padding(20.dp).size(72.dp));Column(Modifier.align(Alignment.BottomStart).padding(18.dp)){Text(r.getString("name"),style=MaterialTheme.typography.titleLarge);Text("$count appareil${if(count>1)"s" else ""}",color=MaisonMuted,style=MaterialTheme.typography.bodySmall)}}}}
             }else{
-                if(scenes.isEmpty()&&!busy)item{EmptyCard("Votre première ambiance","Choisissez des appareils et ce qu’ils doivent faire, puis lancez la scène en un toucher.",MaisonIcons.PlayCircle)}
+                if(scenes.isEmpty()&&!busy&&message.isBlank())item{EmptyCard("Votre première ambiance","Choisissez des appareils et ce qu’ils doivent faire, puis lancez la scène en un toucher.",MaisonIcons.PlayCircle)}
                 items(scenes,key={it.getString("id")}){s->Card(Modifier.fillMaxWidth()){Row(Modifier.padding(18.dp),verticalAlignment=Alignment.CenterVertically){Icon(MaisonIcons.Home,null,tint=Color(0xFFD28AF7),modifier=Modifier.size(30.dp));Spacer(Modifier.width(14.dp));Column(Modifier.weight(1f)){Text(s.getString("name"),style=MaterialTheme.typography.titleMedium);Text("${s.optJSONArray("actions")?.length()?:0} action(s)",color=MaisonMuted,style=MaterialTheme.typography.bodySmall)};IconButton(enabled=!busy,onClick={action{val results=JSONObject(client.post("scenes/${s.getString("id")}/run")).getJSONArray("results").objects();message=if(results.all{it.optBoolean("success")})"Scène exécutée." else "Certaines actions n’ont pas abouti. Vérifiez les appareils."}}){Icon(MaisonIcons.PlayCircle,contentDescription="Lancer ${s.getString("name")}",tint=MaterialTheme.colorScheme.primary)}}}}
             }
         }

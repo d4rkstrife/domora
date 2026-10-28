@@ -31,7 +31,7 @@ import org.json.JSONArray
     fun open(target:String){navigate(target)}
     fun action(work:suspend ()->Unit){scope.launch{pending=true;message="";try{work()}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message?:"Action impossible. Réessayez."}finally{pending=false}}}
     val notificationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->if(granted){NotificationsWorker.enable(context);message="Notifications activées."}else message="Vous pouvez autoriser les notifications dans les réglages Android."}
-    val vpnPermission=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){result->action{if(result.resultCode==android.app.Activity.RESULT_OK){vpnEnabled=true;message="Accès 5G prêt. Ma Maison se connectera automatiquement hors du Wi-Fi."}else{wireguard.disable();vpnEnabled=false;message="Autorisation refusée. Votre accès Wi-Fi reste disponible."}}}
+    val vpnPermission=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){result->action{if(result.resultCode==android.app.Activity.RESULT_OK){vpnEnabled=true;message="Accès 5G prêt. Domora se connectera automatiquement hors du Wi-Fi."}else{wireguard.disable();vpnEnabled=false;message="Autorisation refusée. Votre accès Wi-Fi reste disponible."}}}
     suspend fun refreshDevices(){val list=JSONArray(client.get("devices/authorized"));devices=(0 until list.length()).map{list.getJSONObject(it)}}
     LaunchedEffect(page){
         if(page in listOf("Maison (nom)","Utilisateurs","Paramètres")){
@@ -89,7 +89,7 @@ import org.json.JSONArray
                 item{Text("Pour tester : coupez le Wi-Fi, puis ouvrez une caméra ou une vidéo. Android demande une autorisation VPN lors de la première activation.",color=MaisonMuted,style=MaterialTheme.typography.bodySmall)}
             }
             "Paramètres" -> {
-                item{MenuCard("Notifications","Recevoir les alertes de Ma Maison",MaisonIcons.Info){if(android.os.Build.VERSION.SDK_INT>=33)notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)else{NotificationsWorker.enable(context);message="Notifications activées."}}}
+                item{MenuCard("Notifications","Recevoir les alertes de Domora",MaisonIcons.Info){if(android.os.Build.VERSION.SDK_INT>=33)notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)else{NotificationsWorker.enable(context);message="Notifications activées."}}}
                 item{MenuCard("Sauvegarder la configuration","Export JSON de configuration · sans les médias",MaisonIcons.Storage){backup()}}
                 item{TextButton(onClick={advanced=!advanced}){Text(if(advanced)"Masquer les réglages avancés" else "Réglages avancés")}}
                 if(advanced){

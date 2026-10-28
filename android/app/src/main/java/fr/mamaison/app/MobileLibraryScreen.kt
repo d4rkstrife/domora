@@ -70,8 +70,9 @@ private fun parseMobileVideos(raw: String): List<MobileLibraryVideo> = JSONArray
 }
 
 @Composable fun LibraryScreen(client: MaisonClient, play: (String) -> Unit, onCatalog: () -> Unit) {
+    val recovery=LocalMobileRecovery.current
     val scope = rememberCoroutineScope()
-    var videos by remember { mutableStateOf(emptyList<MobileLibraryVideo>()) }
+    var videos by remember { mutableStateOf(recovery.cached("library")?.let{basic->mergeMobileCatalog(parseMobileVideos(basic),recovery.cached("media/catalog/library")?.let{parseMobileVideos(it)}?:emptyList())}?:emptyList<MobileLibraryVideo>()) }
     var message by remember { mutableStateOf("") }
     var catalogNotice by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(true) }
@@ -85,12 +86,12 @@ private fun parseMobileVideos(raw: String): List<MobileLibraryVideo> = JSONArray
     suspend fun refresh() {
         loading = true; message = ""; catalogNotice = ""
         try {
-            val basic = parseMobileVideos(client.get("library"))
+            val basic = parseMobileVideos(recovery.read("library"))
             videos = basic
             generation++
             if (basic.isNotEmpty()) {
                 try {
-                    val enriched = parseMobileVideos(client.get("media/catalog/library"))
+                    val enriched = parseMobileVideos(recovery.read("media/catalog/library"))
                     videos = mergeMobileCatalog(basic, enriched)
                     if (videos.none { it.metadata != null }) catalogNotice = "Aucun film identifié pour le moment. La lecture reste disponible ; la gestion des jaquettes se trouve dans le menu ⋯."
                 } catch (e: CancellationException) { throw e } catch (_: Exception) {
@@ -98,11 +99,11 @@ private fun parseMobileVideos(raw: String): List<MobileLibraryVideo> = JSONArray
                 }
             }
         } catch (e: CancellationException) { throw e } catch (e: Exception) {
-            message = e.message ?: "Impossible de charger la vidéothèque. Vérifiez la connexion au serveur."
+            message = mobileFailure(e,"vidéothèque").message
         } finally { loading = false }
     }
 
-    LaunchedEffect(Unit) { refresh() }
+    LaunchedEffect(recovery.generation) { refresh() }
     BackHandler(enabled = selectedPath != null) { selectedPath = null }
     val selected = videos.find { it.path == selectedPath }
     if (selectedPath != null) {
@@ -110,8 +111,8 @@ private fun parseMobileVideos(raw: String): List<MobileLibraryVideo> = JSONArray
         else Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             TextButton(onClick = { selectedPath = null }) { Text("‹  Vidéothèque") }
             if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-            else EmptyCard("Vidéo indisponible", "Ce fichier n’est plus présent dans la bibliothèque chargée.", MaisonIcons.PlayCircle)
-            if (message.isNotBlank()) Notice(message, isError = true)
+            else if(message.isBlank()) EmptyCard("Vidéo indisponible", "Ce fichier n’est plus présent dans la bibliothèque chargée.", MaisonIcons.PlayCircle)
+            if (message.isNotBlank()) RetryNotice(message,enabled=!loading){scope.launch{refresh()}}
         }
         return
     }

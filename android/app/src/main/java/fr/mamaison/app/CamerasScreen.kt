@@ -19,16 +19,18 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 @Composable fun CamerasScreen(client:MaisonClient,watch:(String,String)->Unit){
-    val scope=rememberCoroutineScope();var cameras by remember{mutableStateOf(listOf<JSONObject>())};var found by remember{mutableStateOf(listOf<JSONObject>())};var chosen by remember{mutableStateOf(setOf<String>())};var adding by remember{mutableStateOf(false)};var busy by remember{mutableStateOf(false)};var message by remember{mutableStateOf("")};var previewGeneration by remember{mutableIntStateOf(0)}
-    suspend fun refresh(){cameras=JSONArray(client.get("cameras")).objects();previewGeneration++}
-    fun action(work:suspend ()->Unit){scope.launch{busy=true;message="";try{work()}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message?:"Caméra indisponible"}finally{busy=false}}}
-    LaunchedEffect(Unit){action{refresh()}}
+    val recovery=LocalMobileRecovery.current
+    val scope=rememberCoroutineScope();var cameras by remember{mutableStateOf(recovery.cached("cameras")?.let{JSONArray(it).objects()}?:emptyList<JSONObject>())};var found by remember{mutableStateOf(listOf<JSONObject>())};var chosen by remember{mutableStateOf(setOf<String>())};var adding by remember{mutableStateOf(false)};var busy by remember{mutableStateOf(false)};var message by remember{mutableStateOf("")};var previewGeneration by remember{mutableIntStateOf(0)}
+    var failed by remember{mutableStateOf(false)}
+    suspend fun refresh(){cameras=JSONArray(recovery.read("cameras")).objects();previewGeneration++}
+    fun action(work:suspend ()->Unit){scope.launch{busy=true;message="";failed=false;try{work()}catch(e:CancellationException){throw e}catch(e:Exception){failed=true;message=mobileFailure(e,"caméra").message}finally{busy=false}}}
+    LaunchedEffect(recovery.generation){action{refresh()}}
     LazyColumn(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=24.dp)){
         item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween){Text("${cameras.size} caméra${if(cameras.size>1)"s" else ""}",color=MaisonMuted);TextButton(enabled=!busy,onClick={action{refresh()}}){Text("Actualiser")}}}
-        if(message.isNotBlank())item{Notice(message)}
+        if(message.isNotBlank())item{if(failed)RetryNotice(message,enabled=!busy){action{refresh();message=""}}else Notice(message)}
         if(busy)item{LinearProgressIndicator(Modifier.fillMaxWidth())}
         items(cameras,key={it.getString("id")}){camera->CameraPreview(client,camera,previewGeneration){watch(camera.getString("id"),camera.getString("name"))}}
-        if(cameras.isEmpty()&&!busy)item{EmptyCard("Votre première caméra","Branchez une webcam USB au Pi, puis lancez la recherche.",MaisonIcons.Videocam)}
+        if(cameras.isEmpty()&&!busy&&message.isBlank())item{EmptyCard("Votre première caméra","Branchez une webcam USB au Pi, puis lancez la recherche.",MaisonIcons.Videocam)}
         item{OutlinedButton(enabled=!busy,onClick={adding=true;chosen=emptySet();found=emptyList();action{val result=JSONObject(client.post("cameras/discover"));val known=cameras.map{it.optString("sourceId")}.toSet();found=result.getJSONArray("cameras").objects().filter{it.optString("sourceId") !in known};message=result.optString("message")}},modifier=Modifier.fillMaxWidth()){Text("+ Ajouter une caméra")}}
     }
     if(adding)AlertDialog(onDismissRequest={if(!busy)adding=false},title={Text("Caméras USB détectées")},text={LazyColumn(Modifier.heightIn(max=320.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){item{if(busy)LinearProgressIndicator(Modifier.fillMaxWidth());Text(if(!busy&&found.isEmpty())"Aucune nouvelle caméra. Vérifiez le branchement USB." else "Choisissez les webcams à ajouter.",color=MaisonMuted);if(message.isNotBlank())Text(message,style=MaterialTheme.typography.bodySmall)};items(found){camera->Row(verticalAlignment=Alignment.CenterVertically){val id=camera.getString("sourceId");Checkbox(id in chosen,enabled=!busy,onCheckedChange={checked->chosen=if(checked)chosen+id else chosen-id});Text(camera.getString("name"))}}}},confirmButton={TextButton(enabled=!busy&&chosen.isNotEmpty(),onClick={action{chosen.forEach{client.post("cameras",JSONObject().put("sourceId",it))};refresh();adding=false;message="Caméras ajoutées."}}){Text("Ajouter")}},dismissButton={TextButton(enabled=!busy,onClick={adding=false}){Text("Fermer")}})

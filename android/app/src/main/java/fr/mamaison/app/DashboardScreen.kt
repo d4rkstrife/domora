@@ -14,16 +14,16 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 @Composable fun DashboardScreen(client:MaisonClient,stats:JSONObject,navigate:(String)->Unit,refresh:()->Unit,loading:Boolean=false,serverError:String=""){
-    var deviceCount by remember{mutableStateOf<Int?>(null)}
-    var cameraCount by remember{mutableStateOf<Int?>(null)}
-    var downloadCount by remember{mutableStateOf<Int?>(null)}
+    val recovery=LocalMobileRecovery.current
+    var deviceCount by remember{mutableStateOf<Int?>(recovery.cached("home/devices")?.let{JSONArray(it).length()})}
+    var cameraCount by remember{mutableStateOf<Int?>(recovery.cached("cameras")?.let{JSONArray(it).length()})}
+    var downloadCount by remember{mutableStateOf<Int?>(recovery.cached("downloads")?.let{JSONArray(it).length()})}
     var countsLoading by remember{mutableStateOf(true)}
     LaunchedEffect(stats){
         countsLoading=true
-        deviceCount=null;cameraCount=null;downloadCount=null
-        try{deviceCount=JSONArray(client.get("home/devices")).length()}catch(e:CancellationException){throw e}catch(_:Exception){}
-        try{cameraCount=JSONArray(client.get("cameras")).length()}catch(e:CancellationException){throw e}catch(_:Exception){}
-        try{downloadCount=JSONArray(client.get("downloads")).length()}catch(e:CancellationException){throw e}catch(_:Exception){}
+        try{deviceCount=JSONArray(recovery.read("home/devices")).length()}catch(e:CancellationException){throw e}catch(_:Exception){}
+        try{cameraCount=JSONArray(recovery.read("cameras")).length()}catch(e:CancellationException){throw e}catch(_:Exception){}
+        try{downloadCount=JSONArray(recovery.read("downloads")).length()}catch(e:CancellationException){throw e}catch(_:Exception){}
         countsLoading=false
     }
     LazyColumn(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=24.dp)){
