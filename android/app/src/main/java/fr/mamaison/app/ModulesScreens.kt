@@ -59,29 +59,3 @@ internal fun bytes(value:Double)=if(value>=1e9)"%.1f Go".format(value/1e9)else "
     if(add)AlertDialog(onDismissRequest={if(!pending)add=false},title={Text("Nouveau téléchargement")},text={Column(verticalArrangement=Arrangement.spacedBy(12.dp)){Text("Collez un lien magnet ou choisissez un fichier .torrent.",color=MaisonMuted);OutlinedTextField(magnet,{magnet=it},label={Text("Lien magnet")},modifier=Modifier.fillMaxWidth());OutlinedButton(enabled=!pending,onClick={add=false;chooseTorrent()},modifier=Modifier.fillMaxWidth()){Text("Choisir un fichier torrent")};if(message.isNotBlank())Text(message,color=MaterialTheme.colorScheme.error)}},confirmButton={TextButton(enabled=!pending&&magnet.trim().startsWith("magnet:?"),onClick={action{client.post("downloads",JSONObject().put("magnet",magnet.trim()));magnet="";add=false}}){Text("Ajouter")}},dismissButton={TextButton(enabled=!pending,onClick={add=false}){Text("Annuler")}})
     if(remove!=null)AlertDialog(onDismissRequest={remove=null},title={Text("Retirer ce téléchargement ?")},text={Column{Text(remove!!.getString("name"));Row(verticalAlignment=Alignment.CenterVertically){Checkbox(deleteData,{deleteData=it});Text("Supprimer aussi les fichiers")}}},confirmButton={TextButton(onClick={val target=remove!!;remove=null;action{client.post("downloads/${target.getString("id")}/action",JSONObject().put("action","remove").put("deleteData",deleteData).put("confirm",if(deleteData)"SUPPRIMER" else ""))}}){Text("Confirmer",color=MaterialTheme.colorScheme.error)}},dismissButton={TextButton(onClick={remove=null}){Text("Annuler")}})
 }
-
-@Composable fun LibraryScreen(client:MaisonClient,play:(String)->Unit,onCatalog:()->Unit){
-    val scope=rememberCoroutineScope();var list by remember{mutableStateOf(listOf<JSONObject>())};var message by remember{mutableStateOf("")};var query by rememberSaveable{mutableStateOf("")};var filter by rememberSaveable{mutableStateOf("Tous")};var loading by remember{mutableStateOf(true)}
-    suspend fun refresh(){loading=true;message="";try{list=JSONArray(client.get("library")).objects()}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message?:"Bibliothèque indisponible"}finally{loading=false}}
-    LaunchedEffect(Unit){refresh()}
-    var mediaMenu by remember{mutableStateOf(false)}
-    val visible=list.filter{it.getString("title").contains(query,true)&&(filter!="À reprendre"||(it.optJSONObject("progress")?.optDouble("position")?:0.0)>0)}
-    LazyColumn(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=24.dp)){
-        item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
-            Column(Modifier.weight(1f)){Text("Mes vidéos",style=MaterialTheme.typography.titleLarge);Text("Lire, retrouver, reprendre",color=MaisonMuted,style=MaterialTheme.typography.bodySmall)}
-            Box{IconButton(onClick={mediaMenu=true}){Icon(MaisonIcons.MoreHoriz,contentDescription="Options de la médiathèque")};DropdownMenu(expanded=mediaMenu,onDismissRequest={mediaMenu=false}){DropdownMenuItem(text={Text("Jaquettes et identification des films")},leadingIcon={Icon(MaisonIcons.PlayCircle,null)},onClick={mediaMenu=false;onCatalog()})}}
-        }}
-        item{OutlinedTextField(query,{query=it},label={Text("Rechercher une vidéo")},singleLine=true,leadingIcon={Icon(MaisonIcons.PlayCircle,null)},modifier=Modifier.fillMaxWidth())}
-        item{Filters(listOf("Tous","À reprendre"),filter){filter=it}}
-        item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween){Text("${visible.size} vidéo${if(visible.size>1)"s" else ""}",color=MaisonMuted);TextButton(enabled=!loading,onClick={scope.launch{refresh()}}){Text("Actualiser")}}}
-        if(loading)item{LinearProgressIndicator(Modifier.fillMaxWidth())}
-        if(message.isNotBlank())item{Notice(message)}
-        if(visible.isEmpty()&&!loading&&message.isBlank())item{EmptyCard("Aucune vidéo ici",if(query.isNotBlank())"Essayez un autre titre." else "Les vidéos de votre serveur apparaîtront ici.",MaisonIcons.PlayCircle)}
-        items(visible,key={it.getString("path")}){media->
-            val progress=media.optJSONObject("progress");val position=progress?.optDouble("position")?:0.0;val duration=progress?.optDouble("duration")?:0.0
-            Card(onClick={play(media.getString("path"))},modifier=Modifier.fillMaxWidth()){
-                Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(72.dp).background(Color(0xFF2A2741),RoundedCornerShape(14.dp)),contentAlignment=Alignment.Center){Icon(MaisonIcons.PlayCircle,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(32.dp))};Spacer(Modifier.width(16.dp));Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(6.dp)){Text(media.getString("title"),style=MaterialTheme.typography.titleMedium,maxLines=2,overflow=TextOverflow.Ellipsis);Text(bytes(media.optDouble("size")),color=MaisonMuted,style=MaterialTheme.typography.bodySmall);Text(if(position>0)"Reprendre à ${(position/60).toInt()} min" else "Lire la vidéo",color=MaterialTheme.colorScheme.primary,style=MaterialTheme.typography.bodySmall);if(duration>0)LinearProgressIndicator(progress={(position/duration).toFloat().coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth())};Spacer(Modifier.width(8.dp));Icon(MaisonIcons.Chevron,null,tint=MaisonMuted,modifier=Modifier.size(16.dp))}
-            }
-        }
-    }
-}
