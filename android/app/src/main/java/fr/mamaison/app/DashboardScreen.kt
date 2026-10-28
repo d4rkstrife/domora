@@ -13,43 +13,72 @@ import kotlinx.coroutines.CancellationException
 import org.json.JSONArray
 import org.json.JSONObject
 
-@Composable fun DashboardScreen(client:MaisonClient,stats:JSONObject,navigate:(String)->Unit,refresh:()->Unit){
+@Composable fun DashboardScreen(client:MaisonClient,stats:JSONObject,navigate:(String)->Unit,refresh:()->Unit,loading:Boolean=false,serverError:String=""){
     var deviceCount by remember{mutableStateOf<Int?>(null)}
     var cameraCount by remember{mutableStateOf<Int?>(null)}
+    var downloadCount by remember{mutableStateOf<Int?>(null)}
+    var countsLoading by remember{mutableStateOf(true)}
     LaunchedEffect(stats){
+        countsLoading=true
+        deviceCount=null;cameraCount=null;downloadCount=null
         try{deviceCount=JSONArray(client.get("home/devices")).length()}catch(e:CancellationException){throw e}catch(_:Exception){}
         try{cameraCount=JSONArray(client.get("cameras")).length()}catch(e:CancellationException){throw e}catch(_:Exception){}
+        try{downloadCount=JSONArray(client.get("downloads")).length()}catch(e:CancellationException){throw e}catch(_:Exception){}
+        countsLoading=false
     }
-    LazyColumn(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(bottom=24.dp)){
-        item{StatusCard(stats.optString("name","Ma Maison"),"● Serveur disponible · ${client.connectionLabel}")}
-        item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){
-            DashboardMetric("${deviceCount?:"—"}","appareils",Modifier.weight(1f)){navigate("Appareils")}
-            DashboardMetric("${cameraCount?:"—"}","caméras",Modifier.weight(1f)){navigate("Caméras")}
-            DashboardMetric("Ouvrir","seedbox",Modifier.weight(1f)){navigate("Seedbox")}
+    LazyColumn(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=24.dp)){
+        item{
+            Card(Modifier.fillMaxWidth()){
+                Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+                    Text(stats.optString("name").ifBlank{"Votre maison"},style=MaterialTheme.typography.headlineSmall)
+                    Text(if(loading)"Vérification de la connexion…" else if(serverError.isNotBlank())"Serveur injoignable · dernières données connues" else if(stats.length()>0)"● Serveur disponible" else "État du serveur indisponible",color=if(serverError.isNotBlank())MaisonWarning else if(stats.length()>0&&!loading)MaisonGreen else MaisonMuted,style=MaterialTheme.typography.bodySmall)
+                    Text(readableConnection(client.connectionLabel),color=MaisonMuted,style=MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+        if(loading||countsLoading)item{LinearProgressIndicator(Modifier.fillMaxWidth())}
+        if(serverError.isNotBlank())item{Notice(serverError,isError=true)}
+        item{SectionHeading("À portée de main")}
+        item{Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){
+            DashboardShortcut("Caméras","Voir le direct",MaisonIcons.Videocam,Modifier.weight(1f)){navigate("Caméras")}
+            DashboardShortcut("Téléchargements","Suivre les transferts",MaisonIcons.Download,Modifier.weight(1f)){navigate("Téléchargements")}
         }}
-        item{Text("Raccourcis",style=MaterialTheme.typography.titleLarge)}
-        item{Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){
-            Card(onClick={navigate("Médias")},modifier=Modifier.weight(1f)){Column(Modifier.padding(18.dp)){Icon(MaisonIcons.PlayCircle,null,tint=Color(0xFFA992FF));Spacer(Modifier.height(10.dp));Text("Mes médias",style=MaterialTheme.typography.titleSmall);Text("Films et vidéos",color=MaisonMuted,style=MaterialTheme.typography.bodySmall)}}
-            Card(onClick={navigate("Téléchargements")},modifier=Modifier.weight(1f)){Column(Modifier.padding(18.dp)){Icon(MaisonIcons.Storage,null,tint=Color(0xFF4FCCEC));Spacer(Modifier.height(10.dp));Text("Téléchargements",style=MaterialTheme.typography.titleSmall);Text("Suivre la seedbox",color=MaisonMuted,style=MaterialTheme.typography.bodySmall)}}
+        item{Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){
+            DashboardShortcut("Mes vidéos","Lire et reprendre",MaisonIcons.PlayCircle,Modifier.weight(1f)){navigate("Médias")}
+            DashboardShortcut("Appareils","Commander la maison",MaisonIcons.Devices,Modifier.weight(1f)){navigate("Appareils")}
         }}
-        item{Text("Votre maison",style=MaterialTheme.typography.titleLarge)}
-        item{MenuCard("Pièces et scènes","Organiser la maison et lancer une ambiance",MaisonIcons.Home,Color(0xFFF18ABC)){navigate("Pièces et scènes")}}
-        item{MenuCard("Caméras","Voir ce qui se passe à la maison",MaisonIcons.Videocam){navigate("Caméras")}}
-        item{Text("Votre serveur",style=MaterialTheme.typography.titleLarge)}
-        item{MenuCard("Seedbox","Stockage, téléchargements et fichiers",MaisonIcons.Dns,MaisonGreen){navigate("Seedbox")}}
-        item{TextButton(onClick=refresh){Text("Actualiser la maison")}}
+        item{SectionHeading("Votre installation","Informations disponibles sur le serveur")}
+        item{Card(Modifier.fillMaxWidth()){Column(Modifier.padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+            DashboardCount("Appareils locaux",deviceCount)
+            HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.3f))
+            DashboardCount("Caméras",cameraCount)
+            HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.3f))
+            DashboardCount("Téléchargements",downloadCount)
+        }}}
+        item{TextButton(onClick=refresh,enabled=!loading){Text("Actualiser le tableau de bord")}}
     }
 }
-@Composable private fun DashboardMetric(value:String,label:String,modifier:Modifier,onClick:()->Unit){
-    Card(onClick=onClick,modifier=modifier){Column(Modifier.padding(horizontal=12.dp,vertical=16.dp)){Text(value,style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.primary);Text(label,style=MaterialTheme.typography.bodySmall,color=MaisonMuted)}}
+@Composable private fun DashboardCount(label:String,count:Int?){
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(label,color=MaisonMuted);Text(count?.toString()?:"—",style=MaterialTheme.typography.titleSmall)}
+}
+@Composable private fun DashboardShortcut(title:String,subtitle:String,icon:androidx.compose.ui.graphics.vector.ImageVector,modifier:Modifier,onClick:()->Unit){
+    Card(onClick=onClick,modifier=modifier.heightIn(min=136.dp)){
+        Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+            Icon(icon,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(28.dp))
+            Text(title,style=MaterialTheme.typography.titleSmall)
+            Text(subtitle,color=MaisonMuted,style=MaterialTheme.typography.bodySmall)
+        }
+    }
 }
 @Composable fun SeedboxScreen(stats:JSONObject,navigate:(String)->Unit){
     val storage=stats.optJSONObject("storage")
-    LazyColumn(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(12.dp)){
-        item{StatusCard("Ma seedbox","Vos fichiers restent sur votre serveur",MaisonIcons.Dns)}
-        item{Card(Modifier.fillMaxWidth()){Column(Modifier.padding(18.dp)){Text("Stockage disponible",color=MaisonMuted);Text(if(storage==null)"Information indisponible" else "${(storage.optDouble("free")/1e9).toInt()} Go",style=MaterialTheme.typography.headlineMedium)}}}
-        item{MenuCard("Téléchargements","Ajouter, mettre en pause et suivre les torrents",MaisonIcons.Storage,Color(0xFF47C2FF)){navigate("Téléchargements")}}
-        item{MenuCard("Fichiers","Parcourir les dossiers du serveur",MaisonIcons.Folder){navigate("Fichiers")}}
-        item{MenuCard("Médias","Lire vos films et vos vidéos",MaisonIcons.PlayCircle,Color(0xFFA992FF)){navigate("Médias")}}
+    LazyColumn(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(bottom=24.dp)){
+        item{StatusCard("Votre seedbox","Téléchargements et fichiers sur votre serveur",MaisonIcons.Dns)}
+        item{SectionHeading("Téléchargements")}
+        item{MenuCard("Gérer les téléchargements","Ajouter un magnet ou un torrent, suivre et mettre en pause",MaisonIcons.Download){navigate("Téléchargements")}}
+        item{SectionHeading("Fichiers")}
+        item{MenuCard("Parcourir les fichiers","Dossiers partagés et actions sur vos documents",MaisonIcons.Folder){navigate("Fichiers")}}
+        item{SectionHeading("Stockage")}
+        item{MenuCard("Espace disponible",if(storage!=null&&storage.has("free"))bytes(storage.optDouble("free"))+" libres · voir le détail" else "Consulter les informations du volume partagé",MaisonIcons.Storage){navigate("Stockage")}}
     }
 }

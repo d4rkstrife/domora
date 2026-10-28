@@ -18,6 +18,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
 import android.util.Base64
@@ -79,36 +81,64 @@ class MainActivity : ComponentActivity() {
             }
         }; discovery = listener; nsd.discoverServices("_mamaison._tcp.", NsdManager.PROTOCOL_DNS_SD, listener)
     }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        incomingMagnet = intent.getStringExtra(Intent.EXTRA_TEXT)?.takeIf { it.startsWith("magnet:?") } ?: ""
+    }
     override fun onDestroy() { discovery?.let { (getSystemService(NSD_SERVICE) as NsdManager).stopServiceDiscovery(it) }; super.onDestroy() }
     @Composable private fun Maison() {
         val scope = rememberCoroutineScope(); var connected by remember { mutableStateOf(false) }; var busy by remember { mutableStateOf(false) }; var error by remember { mutableStateOf("") }
-        var address by remember { mutableStateOf(client.address) }; var code by remember { mutableStateOf("") }; var tab by rememberSaveable { mutableStateOf(if(incomingMagnet.isNotBlank())"Téléchargements" else "Accueil") }
-        var stats by remember { mutableStateOf(JSONObject()) }; var files by remember { mutableStateOf(listOf<JSONObject>()) }; var folder by rememberSaveable { mutableStateOf("") }; var playing by rememberSaveable { mutableStateOf<String?>(null) }
+        var address by remember { mutableStateOf(client.address) }; var code by remember { mutableStateOf("") }; var navigation by rememberSaveable(stateSaver=Saver<MobileNavigation,List<String>>(save={it.save()},restore={MobileNavigation.restore(it)})) { mutableStateOf(MobileNavigation()) }
+        val tab=navigation.current.page
+        val screenStates=rememberSaveableStateHolder()
+        var serverError by remember { mutableStateOf("") }; var stats by remember { mutableStateOf(JSONObject()) }; var files by remember { mutableStateOf(listOf<JSONObject>()) }; var folder by rememberSaveable { mutableStateOf("") }; var playing by rememberSaveable { mutableStateOf<String?>(null) }
         var connectionStatus by remember { mutableStateOf("") }; var watchingCamera by rememberSaveable { mutableStateOf<String?>(null) }; var cameraName by rememberSaveable { mutableStateOf("Caméra") }
-        var sectionParent by rememberSaveable { mutableStateOf("Plus") }
-        fun navigateSection(target:String){sectionParent=tab;tab=target}
+        fun navigateSection(target:String){navigation=navigation.open(target);error=""}
+        LaunchedEffect(incomingMagnet,connected){if(connected&&incomingMagnet.isNotBlank()){playing=null;watchingCamera=null;navigateSection("Téléchargements")}}
         fun explainConnection(e:Exception):String = when(e){
             is java.net.SocketTimeoutException -> "Le serveur ne répond pas à $address. Vérifiez que le téléphone est sur le Wi-Fi de la maison."
             is java.net.ConnectException -> "Connexion refusée à $address. Vérifiez l’adresse et que le service Ma Maison est démarré."
             is java.net.UnknownHostException -> "Adresse du serveur introuvable : $address."
             else -> e.message?.takeIf{it.isNotBlank()} ?: "Connexion impossible (${e.javaClass.simpleName})."
         }
-        val torrentPicker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->if(uri!=null)scope.launch{try{val bytes=withContext(kotlinx.coroutines.Dispatchers.IO){contentResolver.openInputStream(uri)!!.use{stream->val out=java.io.ByteArrayOutputStream();val block=ByteArray(8192);while(true){val n=stream.read(block);if(n<0)break;if(out.size()+n>2000000)throw Exception("Le fichier torrent est trop volumineux");out.write(block,0,n)};out.toByteArray()}};client.post("downloads",JSONObject().put("torrent",Base64.encodeToString(bytes,Base64.NO_WRAP)));tab="Téléchargements"}catch(e:Exception){error=e.message?:"Ajout impossible"}}}
+        val torrentPicker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->if(uri!=null)scope.launch{try{val bytes=withContext(kotlinx.coroutines.Dispatchers.IO){contentResolver.openInputStream(uri)!!.use{stream->val out=java.io.ByteArrayOutputStream();val block=ByteArray(8192);while(true){val n=stream.read(block);if(n<0)break;if(out.size()+n>2000000)throw Exception("Le fichier torrent est trop volumineux");out.write(block,0,n)};out.toByteArray()}};client.post("downloads",JSONObject().put("torrent",Base64.encodeToString(bytes,Base64.NO_WRAP)));navigateSection("Téléchargements")}catch(e:Exception){error=e.message?:"Ajout impossible"}}}
         val backupPicker=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")){uri->if(uri!=null)scope.launch{try{val backup=client.get("backup");withContext(kotlinx.coroutines.Dispatchers.IO){contentResolver.openOutputStream(uri)!!.use{it.write(backup.toByteArray())}}}catch(e:Exception){error=e.message?:"Sauvegarde impossible"}}}
-        fun load() { scope.launch { busy = true; error = ""; try { stats = JSONObject(client.get("server")); val list = JSONArray(client.get("files?path=${java.net.URLEncoder.encode(folder, "UTF-8")}")); files = (0 until list.length()).map { list.getJSONObject(it) } } catch (e: Exception) { error = e.message ?: "Serveur inaccessible" }; busy = false } }
+        fun load() { scope.launch { busy = true; error = ""; serverError=""; try { stats = JSONObject(client.get("server")); val list = JSONArray(client.get("files?path=${java.net.URLEncoder.encode(folder, "UTF-8")}")); files = (0 until list.length()).map { list.getJSONObject(it) } } catch (e: Exception) { error = e.message ?: "Serveur inaccessible";serverError=error }; busy = false } }
         LaunchedEffect(Unit) { if (client.paired) { busy = true; connectionStatus="Reconnexion au serveur…"; try { client.authenticate(); connected = true; load() } catch(e:CancellationException){throw e} catch (e: Exception) { error = explainConnection(e) } finally {busy = false;connectionStatus=""} } }
         LaunchedEffect(folder) { if (connected) load() }
-        val tabs = listOf("Accueil", "Appareils", "Caméras", "Médias", "Plus")
-        val icons = listOf(MaisonIcons.Home, MaisonIcons.Devices, MaisonIcons.Videocam, MaisonIcons.PlayCircle, MaisonIcons.MoreHoriz)
-        if(connected&&playing!=null){Video(playing!!){playing=null};return}
+        val tabs = MobileNavigation.tabs
+        val icons = listOf(MaisonIcons.Home, MaisonIcons.Dns, MaisonIcons.PlayCircle, MaisonIcons.Devices, MaisonIcons.Settings)
+        if(connected&&playing!=null){screenStates.SaveableStateProvider("player:${playing!!}"){Video(playing!!){playing=null}};return}
         if(connected&&watchingCamera!=null){CameraLive(watchingCamera!!,cameraName){watchingCamera=null};return}
-        androidx.activity.compose.BackHandler(enabled=connected&&tab !in tabs){tab=if(tab=="Seedbox")"Accueil" else sectionParent.takeIf{it in tabs||it=="Seedbox"}?:"Plus"}
-        Scaffold(bottomBar = { if (connected) NavigationBar(containerColor=MaterialTheme.colorScheme.background,tonalElevation=0.dp) { tabs.forEachIndexed { i, name -> NavigationBarItem(selected = tab == name || (tab !in tabs && name == (if(tab=="Seedbox"||sectionParent=="Seedbox")"Accueil" else sectionParent)), onClick = { tab = name; playing = null }, icon = { Icon(icons[i], contentDescription = name) }, label = { Text(name) }) } } }) { padding ->
-            Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(padding).then(if(!connected)Modifier.verticalScroll(rememberScrollState()) else Modifier).padding(horizontal=20.dp,vertical=16.dp)) {
-                Text(if (connected && tab != "Accueil") tab else "Ma Maison", style = MaterialTheme.typography.headlineMedium)
-                Text(if (!connected) "Votre maison commence ici" else when(tab){"Accueil" -> "Bienvenue chez vous"; "Plus" -> "Paramètres et intégrations"; "Appareils" -> "Tous vos appareils connectés"; "Caméras" -> "Gardez un œil sur votre maison"; "Médias" -> "Vos films et vidéos"; "Seedbox" -> "Vos contenus sur votre serveur"; else -> "Votre maison, à portée de main"}, color=MaisonMuted,style=MaterialTheme.typography.bodyMedium); Spacer(Modifier.height(20.dp))
-                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
+        androidx.activity.compose.BackHandler(enabled=connected&&navigation.canGoBack){navigation=navigation.back();error=""}
+        Scaffold(bottomBar = {
+            if (connected) NavigationBar(containerColor=MaterialTheme.colorScheme.surface,tonalElevation=0.dp) {
+                tabs.forEachIndexed { i, name -> NavigationBarItem(
+                    selected=navigation.current.tab==name,
+                    onClick={navigation=navigation.select(name);error=""},
+                    icon={Icon(icons[i],contentDescription=null,modifier=Modifier.size(23.dp))},
+                    label={Text(name,maxLines=1,softWrap=false,style=MaterialTheme.typography.labelSmall)},
+                    colors=NavigationBarItemDefaults.colors(indicatorColor=MaterialTheme.colorScheme.primaryContainer,selectedIconColor=MaterialTheme.colorScheme.primary,selectedTextColor=MaterialTheme.colorScheme.primary)
+                ) }
+            }
+        }) { padding ->
+            Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(padding).then(if(!connected)Modifier.verticalScroll(rememberScrollState()) else Modifier).padding(horizontal=20.dp,vertical=12.dp).imePadding(),verticalArrangement=Arrangement.spacedBy(if(connected)0.dp else 12.dp)) {
+                if(connected){
+                    Row(Modifier.fillMaxWidth().padding(bottom=12.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){
+                        if(navigation.canGoBack)IconButton(onClick={onBackPressedDispatcher.onBackPressed()}){Icon(MaisonIcons.Back,contentDescription="Revenir à la page précédente")}
+                        Column(Modifier.weight(1f)){
+                            Text(if(tab=="Accueil")"Domora" else when(tab){"Maison (nom)"->"Nom de la maison";"Utilisateurs"->"Appareils autorisés";"Paramètres"->"Préférences et maintenance";else->tab},style=MaterialTheme.typography.headlineSmall,maxLines=2)
+                            if(tab in tabs)Text(when(tab){"Accueil"->"Votre maison, simplement";"Seedbox"->"Téléchargements, fichiers et stockage";"Médias"->"Votre vidéothèque";"Maison"->"Équipements et ambiances";else->"Installation et préférences"},color=MaisonMuted,style=MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }else{
+                    Text("Domora",style=MaterialTheme.typography.headlineMedium)
+                    Text("Votre maison commence ici",color=MaisonMuted,style=MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(20.dp))
+                }
+                if (busy && (!connected || tab !in listOf("Accueil","Stockage"))) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (error.isNotEmpty() && (!connected || tab !in listOf("Accueil","Stockage"))) Notice(error,isError=true)
                 if (!connected && connectionStatus.isNotEmpty()) Text(connectionStatus)
                 if (!connected) {
                     Text("Version ${BuildConfig.VERSION_NAME} · build ${BuildConfig.VERSION_CODE}",style=MaterialTheme.typography.bodySmall)
@@ -122,13 +152,15 @@ class MainActivity : ComponentActivity() {
                     Text("Le code est affiché dans le journal du serveur pendant dix minutes après son démarrage.", style = MaterialTheme.typography.bodySmall)
                     Button(enabled = !busy && address.isNotBlank() && code.length == 6, onClick = { scope.launch { busy = true;error="";connectionStatus="Appairage en cours…"; try { client.address = address.trim().trimEnd('/'); client.pair(code); connected = true; load() } catch(e:CancellationException){throw e} catch (e: Exception) { error = explainConnection(e) } finally{busy = false;connectionStatus=""} } }, modifier = Modifier.fillMaxWidth()) { Text("Connecter ma maison") }
                     if(!busy&&code.length!=6)Text("Saisissez les 6 chiffres du code pour activer le bouton de connexion.",style=MaterialTheme.typography.bodySmall)
-                } else when (tab) {
-                    "Accueil" -> DashboardScreen(client,stats,{navigateSection(it)},{load()})
-                    "Téléviseurs" -> TelevisionsScreen(client){navigateSection("Jaquettes")}
+                } else screenStates.SaveableStateProvider(tab) { when (tab) {
+                    "Accueil" -> DashboardScreen(client,stats,{navigateSection(it)},{load()},busy,serverError)
+                    "Téléviseurs" -> TelevisionsScreen(client)
                     "Jaquettes" -> MovieCatalogScreen(client)
                     "Seedbox" -> SeedboxScreen(stats){navigateSection(it)}
-                    "Médias" -> LibraryScreen(client){playing=it}
+                    "Médias" -> LibraryScreen(client,play={playing=it},onCatalog={navigateSection("Jaquettes")})
                     "Fichiers" -> FilesScreen(client,folder,{folder=it},{playing=it})
+                    "Stockage" -> StorageScreen(stats,busy,serverError){load()}
+                    "Maison" -> MaisonScreen{navigateSection(it)}
                     "Caméras" -> CamerasScreen(client){id,name->watchingCamera=id;cameraName=name}
                     "Google Home" -> {
                         val home = googleHome
@@ -139,11 +171,11 @@ class MainActivity : ComponentActivity() {
                             Text("Vérifiez les mises à jour de Google Home et des services Google Play, puis relancez Ma Maison. Si le problème persiste, transmettez le message ci-dessus.", color=MaisonMuted)
                         }
                     }
-                    "Appareils" -> Column { TextButton(onClick={navigateSection("Google Home")}){Text("Mes appareils Google Home")}; HomeScreen(client) }
-                    "Plus" -> SettingsScreen(client,{navigateSection(it)},{backupPicker.launch("ma-maison-sauvegarde.json")})
-                    "Téléchargements" -> DownloadsScreen(client,incomingMagnet){torrentPicker.launch(arrayOf("application/x-bittorrent","application/octet-stream"))}
+                    "Appareils" -> Column { TextButton(onClick={navigateSection("Google Home")}){Icon(MaisonIcons.Link,null,Modifier.size(18.dp));Spacer(Modifier.width(8.dp));Text("Ouvrir Google Home")}; Box(Modifier.weight(1f)){HomeScreen(client)} }
+                    "Réglages", "Installation", "Maison (nom)", "Utilisateurs", "Intégrations", "Réseau", "Paramètres", "Aide & support", "À propos" -> SettingsScreen(client,tab,{navigateSection(it)},{backupPicker.launch("ma-maison-sauvegarde.json")})
+                    "Téléchargements" -> DownloadsScreen(client,incomingMagnet,onSharedMagnetConsumed={incomingMagnet="";intent.removeExtra(Intent.EXTRA_TEXT)}){torrentPicker.launch(arrayOf("application/x-bittorrent","application/octet-stream"))}
                     "Pièces et scènes" -> RoomsScenesScreen(client)
-                }
+                } }
             }
         }
     }
@@ -180,7 +212,7 @@ class MainActivity : ComponentActivity() {
                 Text(name,style=MaterialTheme.typography.headlineMedium)
                 Text("Webcam USB · Sans son",color=MaisonMuted)
                 Card(Modifier.fillMaxWidth()){Box(Modifier.fillMaxWidth().aspectRatio(16f/9f).background(Color.Black),contentAlignment=androidx.compose.ui.Alignment.Center){if(frame!=null)Image(frame!!.asImageBitmap(),contentDescription="Direct webcam",contentScale=ContentScale.Fit,modifier=Modifier.fillMaxSize())else if(error.isBlank())CircularProgressIndicator()else Icon(MaisonIcons.Videocam,null,tint=MaisonMuted,modifier=Modifier.size(42.dp))}}
-                if(error.isNotBlank())Notice(error)
+                if(error.isNotBlank())Notice(error,isError=true)
                 Button(onClick={controls=true;fullScreen=true},modifier=Modifier.fillMaxWidth()){Text("Voir en plein écran")}
                 Text("Le direct s’actualise automatiquement. Touchez l’écran en plein écran pour afficher les commandes.",color=MaisonMuted,style=MaterialTheme.typography.bodySmall)
             }

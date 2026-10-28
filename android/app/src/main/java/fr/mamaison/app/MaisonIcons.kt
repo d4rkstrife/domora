@@ -9,6 +9,9 @@ import androidx.compose.ui.unit.dp
 
 // Small project-owned vector set: no bitmap assets or complete icon catalogue.
 object MaisonIcons {
+    val Back = icon("Retour", "M20,11 L7,11 L12,6 L10,4 L2,12 L10,20 L12,18 L7,13 L20,13 Z")
+    val Download = icon("Telechargements", "M10,2 L14,2 L14,12 L18,8 L21,11 L12,20 L3,11 L6,8 L10,12 Z M3,21 L21,21 L21,24 L3,24 Z")
+    val Television = icon("Television", "M2,3 L22,3 L22,19 L14,19 L14,21 L18,21 L18,23 L6,23 L6,21 L10,21 L10,19 L2,19 Z M4,5 L4,17 L20,17 L20,5 Z")
     val Chevron = icon("Suivant", "M9,4 L17,12 L9,20 L7,18 L13,12 L7,6 Z")
     val People = icon("Utilisateurs", "M8,2 A4,4 0,1 1,8,10 A4,4 0,1 1,8,2 M2,12 L14,12 L16,21 L0,21 Z M18,4 A3,3 0,1 1,18,10 A3,3 0,1 1,18,4 M17,12 L22,12 L24,21 L18,21 Z")
     val Network = icon("Reseau", "M1,6 Q12,-2 23,6 L21,8 Q12,1 3,8 Z M5,11 Q12,5 19,11 L17,13 Q12,9 7,13 Z M9,16 Q12,13 15,16 L12,20 Z")

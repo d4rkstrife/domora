@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 
-@Composable fun TelevisionsScreen(client:MaisonClient,onCatalog:()->Unit) {
+@Composable fun TelevisionsScreen(client:MaisonClient) {
     val context=LocalContext.current;val scope=rememberCoroutineScope()
     var request by remember{mutableStateOf<JSONObject?>(null)}
     var folders by remember{mutableStateOf(emptyList<String>())}
@@ -26,10 +26,9 @@ import org.json.JSONObject
     fun action(work:suspend()->Unit){scope.launch{pending=true;error="";try{work()}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message?:"Action TV impossible"}finally{pending=false}}}
     fun loadRequest(text:String){action{val parsed=TvLink.parse(text);val entries=JSONArray(client.get("files"));folders=(0 until entries.length()).map{entries.getJSONObject(it)}.filter{it.optBoolean("directory")}.map{it.getString("path")};selected=emptySet();request=parsed}}
     LaunchedEffect(Unit){action{refresh()}}
-    if(remove!=null)AlertDialog(onDismissRequest={remove=null},title={Text("Retirer cette télévision ?")},text={Text("Ses vidéos et sa connexion privée au serveur seront révoquées.")},confirmButton={TextButton(onClick={val id=remove!!.getString("id");remove=null;action{client.delete("devices/authorized/$id");refresh()}}){Text("Retirer l’accès")}},dismissButton={TextButton(onClick={remove=null}){Text("Annuler")}})
-    LazyColumn(verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        item{StatusCard("Domora TV","Approuvez une télé et ses dossiers vidéo",MaisonIcons.Videocam)}
-        item{OutlinedButton(onClick=onCatalog,modifier=Modifier.fillMaxWidth()){Text("Jaquettes et identification des films")}}
+    if(remove!=null)AlertDialog(onDismissRequest={remove=null},title={Text("Retirer cette télévision ?")},text={Text("Ses vidéos et sa connexion privée au serveur seront révoquées.")},confirmButton={TextButton(onClick={val id=remove!!.getString("id");remove=null;action{client.delete("devices/authorized/$id");refresh()}}){Text("Retirer l’accès",color=MaterialTheme.colorScheme.error)}},dismissButton={TextButton(onClick={remove=null}){Text("Annuler")}})
+    LazyColumn(modifier=Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        item{StatusCard("Domora TV","Approuvez une télé et ses dossiers vidéo",MaisonIcons.Television)}
         item{Text("Ouvrez Domora TV, puis scannez son QR code. Le téléphone et la télé doivent être sur le même Wi-Fi ; votre Pi peut être ailleurs grâce à WireGuard.",color=MaisonMuted)}
         if(pending)item{LinearProgressIndicator(Modifier.fillMaxWidth())}
         if(error.isNotBlank())item{Text(error,color=MaterialTheme.colorScheme.error)}
